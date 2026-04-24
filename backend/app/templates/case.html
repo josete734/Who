@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% block title %}Caso · who{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+{% endblock %}
+{% block body %}
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
+  <div class="min-w-0">
+    <h1 id="case-title" class="text-2xl font-semibold truncate">Caso</h1>
+    <p id="case-sub" class="text-xs text-neutral-500 mt-0.5 font-mono"></p>
+  </div>
+  <div class="flex items-center gap-2">
+    <span id="status-pill" class="tag bg-neutral-800">...</span>
+    <span id="progress-pct" class="tag bg-neutral-800 font-mono">0%</span>
+    <a href="/" class="text-xs text-neutral-400 hover:text-white ml-3">← Inicio</a>
+  </div>
+</div>
+
+<!-- Live progress bar -->
+<div class="w-full h-1 rounded-full bg-neutral-900 overflow-hidden mb-6 no-print">
+  <div id="progress-bar" class="h-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
+</div>
+
+<!-- Stats grid -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Hallazgos</div><div class="stat-num text-3xl" id="stat-total">0</div></div>
+  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Colectores</div><div class="stat-num text-3xl"><span id="col-done">0</span><span class="text-neutral-500 text-xl">/<span id="col-total">0</span></span></div></div>
+  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Perfiles sociales</div><div class="stat-num text-3xl" id="stat-profiles">0</div></div>
+  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Emails</div><div class="stat-num text-3xl" id="stat-emails">0</div></div>
+  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Teléfonos</div><div class="stat-num text-3xl" id="stat-phones">0</div></div>
+  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Brechas</div><div class="stat-num text-3xl text-red-400" id="stat-breaches">0</div></div>
+</div>
+
+<!-- Tabs -->
+<div class="border-b border-neutral-800 mb-5 flex gap-5 text-sm no-print flex-wrap">
+  <button data-tab="syn" class="tab py-2 border-b-2 tab-active">Síntesis IA</button>
+  <button data-tab="prof" class="tab py-2 border-b-2 tab-inactive">Perfiles <span class="tag bg-neutral-800 ml-1" id="prof-pill">0</span></button>
+  <button data-tab="pics" class="tab py-2 border-b-2 tab-inactive">Fotos <span class="tag bg-neutral-800 ml-1" id="pics-pill">0</span></button>
+  <button data-tab="find" class="tab py-2 border-b-2 tab-inactive">Hallazgos <span class="tag bg-neutral-800 ml-1" id="find-pill">0</span></button>
+  <button data-tab="col" class="tab py-2 border-b-2 tab-inactive">Colectores</button>
+  <button data-tab="exp" class="tab py-2 border-b-2 tab-inactive">Exportar</button>
+</div>
+
+<!-- Tab: Síntesis -->
+<section data-panel="syn" class="panel">
+  <div class="card p-6 md:p-8">
+    <div id="syn-status" class="flex items-center gap-2 text-sm text-neutral-400 mb-4">
+      <span class="spinner"></span>
+      <span id="syn-status-text">Esperando a que terminen los colectores…</span>
+    </div>
+    <article id="synthesis" class="prose prose-invert prose-lg max-w-none"></article>
+    <div id="syn-empty" class="text-center text-neutral-500 py-10 hidden">Sin síntesis todavía.</div>
+  </div>
+</section>
+
+<!-- Tab: Perfiles -->
+<section data-panel="prof" class="panel hidden">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold">Perfiles detectados</h2>
+    <button onclick="loadProfiles()" class="text-xs text-neutral-400 hover:text-white">↻ refrescar</button>
+  </div>
+  <div id="profile-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"></div>
+  <div id="profile-empty" class="text-center text-neutral-500 py-10 hidden">Sin perfiles aún.</div>
+</section>
+
+<!-- Tab: Fotos -->
+<section data-panel="pics" class="panel hidden">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold">Galería visual</h2>
+    <button onclick="loadPhotos()" class="text-xs text-neutral-400 hover:text-white">↻ refrescar</button>
+  </div>
+  <div id="photo-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+  <div id="photo-empty" class="text-center text-neutral-500 py-10 hidden">Sin fotos aún.</div>
+</section>
+
+<!-- Tab: Hallazgos -->
+<section data-panel="find" class="panel hidden">
+  <div class="flex items-center gap-2 mb-3 flex-wrap">
+    <input id="q" class="input max-w-xs" placeholder="filtrar título / url…">
+    <select id="cat-filter" class="input max-w-[12rem]"><option value="">Todas las categorías</option></select>
+    <select id="coll-filter" class="input max-w-[14rem]"><option value="">Todos los colectores</option></select>
+    <span class="text-xs text-neutral-500 ml-auto" id="count"></span>
+  </div>
+  <div id="find-groups" class="space-y-3"></div>
+</section>
+
+<!-- Tab: Colectores -->
+<section data-panel="col" class="panel hidden">
+  <div id="col-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+</section>
+
+<!-- Tab: Export -->
+<section data-panel="exp" class="panel hidden">
+  <div class="card p-6 space-y-3">
+    <h2 class="font-semibold text-lg mb-2">Exportar</h2>
+    <div class="flex gap-3 flex-wrap">
+      <button onclick="downloadJSON()" class="btn">Descargar JSON (hallazgos)</button>
+      <button onclick="downloadMarkdown()" class="btn">Descargar Markdown (síntesis)</button>
+      <button onclick="downloadFullReport()" class="btn">Informe completo (Markdown)</button>
+      <button onclick="window.print()" class="btn">Imprimir / PDF</button>
+    </div>
+    <p class="text-xs text-neutral-500 pt-2">El informe completo incluye la síntesis IA y la tabla completa de hallazgos con fuente y URL.</p>
+  </div>
+</section>
+
+<style>
+.input { background: rgb(20 20 20); border: 1px solid rgb(38 38 38); border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; outline:none; color:white; }
+.input:focus { border-color: rgb(140 140 140); }
+.btn { background: white; color: black; padding: 0.55rem 1.1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; transition: background 0.15s; }
+.btn:hover { background: rgb(229 229 229); }
+.btn.secondary { background: rgb(38 38 38); color: white; }
+.btn.secondary:hover { background: rgb(64 64 64); }
+.prose-invert h1, .prose-invert h2 { border-bottom: 1px solid rgb(38 38 38); padding-bottom: 0.3rem; }
+.prose-invert h1 { font-size: 1.8rem; }
+.prose-invert h2 { font-size: 1.35rem; margin-top: 1.5rem; }
+.prose-invert table { font-size: 0.85rem; }
+.prose-invert code { background: rgb(38 38 38); padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
+</style>
+
+<script>
+const CASE_ID = "{{ case_id }}";
+const PILL = document.getElementById("status-pill");
+const TITLE_EL = document.getElementById("case-title");
+const SUB_EL = document.getElementById("case-sub");
+const SYN = document.getElementById("synthesis");
+const SYN_STATUS_TEXT = document.getElementById("syn-status-text");
+const SYN_STATUS = document.getElementById("syn-status");
+const SYN_EMPTY = document.getElementById("syn-empty");
+const COL_GRID = document.getElementById("col-grid");
+const COL_DONE = document.getElementById("col-done");
+const COL_TOTAL = document.getElementById("col-total");
+const FIND_GROUPS = document.getElementById("find-groups");
+const FIND_PILL = document.getElementById("find-pill");
+const COUNT = document.getElementById("count");
+const Q = document.getElementById("q");
+const CATFILTER = document.getElementById("cat-filter");
+const COLLFILTER = document.getElementById("coll-filter");
+const PROGRESS_BAR = document.getElementById("progress-bar");
+const PROGRESS_PCT = document.getElementById("progress-pct");
+
+// Stats
+const STAT_TOTAL = document.getElementById("stat-total");
+const STAT_PROFILES = document.getElementById("stat-profiles");
+const STAT_EMAILS = document.getElementById("stat-emails");
+const STAT_PHONES = document.getElementById("stat-phones");
+const STAT_BREACHES = document.getElementById("stat-breaches");
+
+const collectorState = new Map();
+const findings = [];
+const categories = new Set();
+const collectorsSeen = new Set();
+let totalCollectors = 0;
+let caseMeta = null;
+
+// --- Tabs ---
+for (const btn of document.querySelectorAll(".tab")) {
+  btn.addEventListener("click", () => {
+    const t = btn.dataset.tab;
+    for (const b of document.querySelectorAll(".tab")) {
+      b.classList.toggle("tab-active", b.dataset.tab === t);
+      b.classList.toggle("tab-inactive", b.dataset.tab !== t);
+    }
+    for (const p of document.querySelectorAll(".panel")) {
+      p.classList.toggle("hidden", p.dataset.panel !== t);
+    }
+  });
+}
+
+// --- Helpers ---
+const STATUS_COLORS = {queued:"bg-neutral-700", running:"bg-yellow-600", ok:"bg-emerald-700", error:"bg-red-700", timeout:"bg-orange-700", done:"bg-emerald-700", cancelled:"bg-neutral-700"};
+function statusCls(s){return "tag " + (STATUS_COLORS[s] || "bg-neutral-700");}
+function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function updateProgress(){
+  const pct = totalCollectors ? Math.round(100 * Array.from(collectorState.values()).filter(s=>["ok","error","timeout","cancelled"].includes(s.status)).length / totalCollectors) : 0;
+  PROGRESS_BAR.style.width = pct + "%";
+  PROGRESS_PCT.textContent = pct + "%";
+}
+function recomputeStats(){
+  STAT_TOTAL.textContent = findings.length;
+  const uniq = (key) => new Set(findings.filter(f=>f.category===key).map(f=>f.url||f.title)).size;
+  STAT_PROFILES.textContent = findings.filter(f=>f.category==="username" || f.category==="social").length;
+  STAT_EMAILS.textContent = uniq("email");
+  STAT_PHONES.textContent = uniq("phone");
+  STAT_BREACHES.textContent = findings.filter(f=>f.category==="breach").length;
+  FIND_PILL.textContent = findings.length;
+}
+
+// --- Render collectors grid ---
+function renderCollectors() {
+  COL_GRID.innerHTML = "";
+  const entries = [...collectorState.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  for (const [name, s] of entries) {
+    const div = document.createElement("div");
+    div.className = "stat-card flex items-center justify-between";
+    const icon = s.status === "running" ? `<span class="spinner"></span>` : "";
+    div.innerHTML = `
+      <div class="min-w-0">
+        <div class="font-mono text-sm truncate">${icon} ${name}</div>
+        <div class="text-xs text-neutral-500 mt-1">${s.status}${s.duration_ms?` · ${Math.round(s.duration_ms/100)/10}s`:""}${s.message?` · <span class="text-red-400">${escapeHtml(s.message.slice(0,120))}</span>`:""}</div>
+      </div>
+      <span class="stat-num text-2xl">${s.count || 0}</span>`;
+    COL_GRID.appendChild(div);
+  }
+  COL_DONE.textContent = entries.filter(([,s])=>["ok","error","timeout","cancelled"].includes(s.status)).length;
+  COL_TOTAL.textContent = totalCollectors || entries.length;
+  updateProgress();
+}
+
+// --- Render findings (grouped accordion) ---
+function renderFindings(){
+  const q = Q.value.trim().toLowerCase();
+  const cat = CATFILTER.value;
+  const coll = COLLFILTER.value;
+
+  const filtered = findings.filter(f => {
+    if (cat && f.category !== cat) return false;
+    if (coll && f.collector !== coll) return false;
+    if (q && !(f.title||"").toLowerCase().includes(q) && !(f.url||"").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const byCat = {};
+  for (const f of filtered) { (byCat[f.category] ??= []).push(f); }
+
+  FIND_GROUPS.innerHTML = "";
+  const order = ["username","email","phone","name","social","es_official","code","academic","breach","archive","knowledge","domain","infra","dork"];
+  const keys = Object.keys(byCat).sort((a,b)=>{
+    const ai = order.indexOf(a), bi = order.indexOf(b);
+    return (ai===-1?99:ai) - (bi===-1?99:bi);
+  });
+
+  for (const c of keys) {
+    const items = byCat[c];
+    const det = document.createElement("details");
+    det.open = true;
+    det.className = "card";
+    det.innerHTML = `
+      <summary class="p-4 flex items-center justify-between">
+        <span class="font-medium">${escapeHtml(c)}</span>
+        <span class="tag bg-neutral-800">${items.length}</span>
+      </summary>
+      <div class="px-4 pb-4 space-y-2">${items.map(renderFinding).join("")}</div>`;
+    FIND_GROUPS.appendChild(det);
+  }
+  COUNT.textContent = `${filtered.length} / ${findings.length}`;
+}
+
+function renderFinding(f){
+  const conf = Math.round((f.confidence||0)*100);
+  const hasPayload = f.payload && Object.keys(f.payload).length;
+  return `
+    <div class="p-3 rounded border border-neutral-800 bg-neutral-950/60 hover:border-neutral-700">
+      <div class="flex items-center gap-2 text-xs mb-1 flex-wrap">
+        <span class="tag bg-neutral-800">${escapeHtml(f.collector)}</span>
+        <span class="tag bg-neutral-800">${escapeHtml(f.entity_type)}</span>
+        <span class="tag ${conf>=80?'bg-emerald-900':conf>=50?'bg-neutral-700':'bg-neutral-800 text-neutral-500'}">${conf}%</span>
+      </div>
+      <div class="text-sm">${escapeHtml(f.title)}</div>
+      ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" rel="noreferrer" class="text-xs text-sky-400 break-all hover:underline">${escapeHtml(f.url)}</a>` : ""}
+      ${hasPayload ? `<details class="mt-1 text-xs text-neutral-400"><summary class="cursor-pointer hover:text-neutral-200">payload</summary><pre class="mt-1 text-[11px] bg-neutral-900 p-2 rounded">${escapeHtml(JSON.stringify(f.payload, null, 2))}</pre></details>` : ""}
+    </div>`;
+}
+
+Q.addEventListener("input", renderFindings);
+CATFILTER.addEventListener("change", renderFindings);
+COLLFILTER.addEventListener("change", renderFindings);
+
+function ensureOpt(select, value, keySet) {
+  if (keySet.has(value)) return;
+  keySet.add(value);
+  const o = document.createElement("option"); o.value=value; o.textContent=value;
+  select.appendChild(o);
+}
+
+// --- Load meta ---
+async function loadCaseMeta() {
+  const r = await fetch(`/api/cases/${CASE_ID}`, { credentials: "include" });
+  if (!r.ok) return;
+  caseMeta = await r.json();
+  TITLE_EL.textContent = caseMeta.title;
+  const inp = caseMeta.input_payload || {};
+  SUB_EL.textContent = Object.entries(inp).filter(([k])=>!["extra_context"].includes(k)).map(([k,v])=>`${k}=${v}`).join("  ·  ");
+  PILL.className = statusCls(caseMeta.status);
+  PILL.textContent = caseMeta.status;
+  if (caseMeta.synthesis_markdown) {
+    SYN.innerHTML = DOMPurify.sanitize(marked.parse(caseMeta.synthesis_markdown));
+    SYN_STATUS.classList.add("hidden");
+  } else if (caseMeta.status === "done") {
+    SYN_STATUS.classList.add("hidden");
+    SYN_EMPTY.classList.remove("hidden");
+  }
+  if (caseMeta.synthesis_model) SYN_STATUS_TEXT.textContent = `Modelo: ${caseMeta.synthesis_model}`;
+}
+
+// --- Stream ---
+function connect() {
+  const es = new EventSource(`/api/cases/${CASE_ID}/stream`, { withCredentials: true });
+
+  es.addEventListener("case_started", (e) => {
+    const d = JSON.parse(e.data);
+    totalCollectors = (d.data?.collectors || []).length;
+    for (const name of (d.data?.collectors || [])) {
+      if (!collectorState.has(name)) collectorState.set(name, {status:"queued", count:0});
+    }
+    renderCollectors();
+  });
+  es.addEventListener("collector_start", (e) => {
+    const d = JSON.parse(e.data);
+    const name = d.data?.collector;
+    collectorState.set(name, {...(collectorState.get(name)||{}), status:"running"});
+    renderCollectors();
+  });
+  es.addEventListener("collector_end", (e) => {
+    const d = JSON.parse(e.data);
+    const c = d.data?.collector;
+    collectorState.set(c, {status: d.data?.status || "ok", count: d.data?.count || 0, duration_ms: d.data?.duration_ms, message: d.data?.message});
+    renderCollectors();
+  });
+  es.addEventListener("finding", (e) => {
+    const d = JSON.parse(e.data);
+    const f = d.data;
+    findings.push(f);
+    ensureOpt(CATFILTER, f.category, categories);
+    ensureOpt(COLLFILTER, f.collector, collectorsSeen);
+    recomputeStats();
+    renderFindings();
+    if (["username","social","photo","image","name"].includes(f.category)) {
+      schedulePictureRefresh();
+    }
+  });
+  es.addEventListener("synthesis", async (e) => {
+    const d = JSON.parse(e.data);
+    if (d.data?.status === "starting") { SYN_STATUS.classList.remove("hidden"); SYN_STATUS_TEXT.textContent = `Generando con ${d.data.llm}…`; }
+    if (d.data?.status === "done") { SYN_STATUS.classList.add("hidden"); await loadCaseMeta(); }
+    if (d.data?.status === "no_findings") { SYN_STATUS.classList.add("hidden"); SYN_EMPTY.classList.remove("hidden"); }
+  });
+  es.addEventListener("done", () => {
+    PILL.className = statusCls("done"); PILL.textContent = "done";
+    loadCaseMeta(); es.close();
+  });
+  es.addEventListener("error", (e) => { try { const d = JSON.parse(e.data); console.warn("err", d); } catch {} });
+  es.onerror = () => {};
+}
+
+// --- Export ---
+function downloadJSON() {
+  const blob = new Blob([JSON.stringify(findings, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `who-${CASE_ID}-findings.json`; a.click();
+}
+function downloadMarkdown() {
+  const md = (caseMeta?.synthesis_markdown) || "(sin síntesis)";
+  const blob = new Blob([md], {type: "text/markdown"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `who-${CASE_ID}-synthesis.md`; a.click();
+}
+function downloadFullReport() {
+  const hdr = `# who — Informe OSINT\n\n**Caso**: ${caseMeta?.title || ""}\n\n**Input**: \`${JSON.stringify(caseMeta?.input_payload || {})}\`\n\n**Fecha**: ${new Date().toISOString()}\n\n---\n\n`;
+  const syn = caseMeta?.synthesis_markdown ? `## Síntesis IA\n\n${caseMeta.synthesis_markdown}\n\n---\n\n` : "";
+  const tbl = `## Hallazgos brutos (${findings.length})\n\n| Colector | Categoría | Título | URL | Confianza |\n|---|---|---|---|---|\n`
+    + findings.map(f=>`| ${f.collector} | ${f.category} | ${(f.title||"").replace(/\|/g,"/")} | ${f.url||""} | ${Math.round((f.confidence||0)*100)}% |`).join("\n");
+  const md = hdr + syn + tbl;
+  const blob = new Blob([md], {type:"text/markdown"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `who-${CASE_ID}-informe.md`; a.click();
+}
+
+// --- Profiles tab ---
+async function loadProfiles(){
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}/profiles`, {credentials:"include"});
+    if (!r.ok) return;
+    const data = await r.json();
+    const grid = document.getElementById("profile-grid");
+    const empty = document.getElementById("profile-empty");
+    grid.innerHTML = "";
+    document.getElementById("prof-pill").textContent = data.count;
+    if (data.count === 0) { empty.classList.remove("hidden"); return; }
+    empty.classList.add("hidden");
+    for (const p of data.profiles) {
+      const card = document.createElement("div");
+      card.className = "stat-card flex flex-col gap-2";
+      const avatar = p.avatar
+        ? `<img src="${escapeHtml(p.avatar)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" class="w-14 h-14 rounded-full object-cover bg-neutral-800 shrink-0">`
+        : `<div class="w-14 h-14 rounded-full bg-neutral-800 grid place-items-center text-xl text-neutral-500 shrink-0">${escapeHtml((p.handle||"?").charAt(0).toUpperCase())}</div>`;
+      const conf = Math.round((p.confidence||0)*100);
+      const confColor = conf>=80?'bg-emerald-900':conf>=50?'bg-neutral-700':'bg-neutral-800';
+      const extras = Object.entries(p.extras||{}).filter(([,v])=>v!==null&&v!==undefined&&v!=="").slice(0,3)
+        .map(([k,v])=>`<span class="tag bg-neutral-800">${escapeHtml(k)}: ${escapeHtml(String(v).slice(0,24))}</span>`).join(" ");
+      card.innerHTML = `
+        <div class="flex gap-3 items-start">
+          ${avatar}
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="tag bg-neutral-800">${escapeHtml(p.platform)}</span>
+              <span class="tag ${confColor}">${conf}%</span>
+            </div>
+            <div class="font-medium truncate">${escapeHtml(p.display_name || p.handle || "(anónimo)")}</div>
+            <div class="text-xs text-neutral-500 truncate">@${escapeHtml(p.handle || "")}</div>
+          </div>
+        </div>
+        ${p.bio ? `<div class="text-xs text-neutral-400 line-clamp-3">${escapeHtml(p.bio)}</div>` : ""}
+        <div class="flex flex-wrap gap-1">${extras}</div>
+        <div class="mt-auto flex items-center gap-2 text-xs text-neutral-500">
+          <span class="font-mono">${escapeHtml(p.collector)}</span>
+          ${p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noreferrer" class="ml-auto text-sky-400 hover:underline">abrir →</a>` : ""}
+        </div>`;
+      grid.appendChild(card);
+    }
+  } catch(e) { console.warn("profiles:", e); }
+}
+
+// --- Photos tab ---
+async function loadPhotos(){
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}/photos`, {credentials:"include"});
+    if (!r.ok) return;
+    const data = await r.json();
+    const grid = document.getElementById("photo-grid");
+    const empty = document.getElementById("photo-empty");
+    grid.innerHTML = "";
+    document.getElementById("pics-pill").textContent = data.count;
+    if (data.count === 0) { empty.classList.remove("hidden"); return; }
+    empty.classList.add("hidden");
+    for (const p of data.photos) {
+      const div = document.createElement("div");
+      div.className = "relative group";
+      div.innerHTML = `
+        <a href="${escapeHtml(p.source_link || p.url)}" target="_blank" rel="noreferrer" class="block aspect-square overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+          <img src="${escapeHtml(p.url)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.parentElement.remove()" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110">
+        </a>
+        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="font-mono text-[10px] text-neutral-300">${escapeHtml(p.source_collector)}</div>
+          <div class="text-neutral-400 truncate">${escapeHtml(p.source_title || "")}</div>
+        </div>`;
+      grid.appendChild(div);
+    }
+  } catch(e) { console.warn("photos:", e); }
+}
+
+// Trigger loads when tabs are clicked
+for (const btn of document.querySelectorAll(".tab")) {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.tab === "prof") loadProfiles();
+    if (btn.dataset.tab === "pics") loadPhotos();
+  });
+}
+
+// Auto-refresh profiles/photos when we receive relevant findings
+let _profPendingTimer = null;
+function schedulePictureRefresh(){
+  if (_profPendingTimer) return;
+  _profPendingTimer = setTimeout(()=>{ loadProfiles(); loadPhotos(); _profPendingTimer = null; }, 2500);
+}
+
+// Boot
+loadCaseMeta();
+loadProfiles();
+loadPhotos();
+connect();
+</script>
+{% endblock %}

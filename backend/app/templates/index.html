@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Inicio · who{% endblock %}
+{% block body %}
+
+<!-- Hero -->
+<section class="mb-8">
+  <h1 class="text-4xl md:text-5xl font-semibold tracking-tight mb-3">Perfil digital completo.</h1>
+  <p class="text-neutral-400 max-w-2xl">
+    Agregación masiva de huella pública de una persona: redes sociales, registros oficiales,
+    código, filtraciones, documentos y prensa. Síntesis final con IA.
+  </p>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+  <!-- Form -->
+  <section class="lg:col-span-3 card p-6">
+    <h2 class="text-lg font-semibold mb-4">Nueva investigación</h2>
+    <form id="new-case" class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <label class="col-span-2 lbl">Título</label>
+        <input name="title" required class="col-span-2 input" placeholder="p.ej. perfil X">
+
+        <div><label class="lbl"><span>🪪</span> Nombre habitual</label><input name="full_name" class="input" placeholder="Jose Castillo"></div>
+        <div><label class="lbl"><span>📄</span> Nombre legal / pila</label><input name="birth_name" class="input" placeholder="Jose Angel Castillo Diez"></div>
+        <div class="col-span-2"><label class="lbl"><span>🏷️</span> Otros alias (separados por coma)</label><input name="aliases" class="input" placeholder="JC, Pepe Castillo, j.castillo"></div>
+        <div><label class="lbl"><span>✉️</span> Email</label><input name="email" type="email" class="input" placeholder="correo@dominio.com"></div>
+        <div><label class="lbl"><span>☎️</span> Teléfono (E.164)</label><input name="phone" class="input" placeholder="+34612345678"></div>
+        <div><label class="lbl"><span>@</span> Username digital</label><input name="username" class="input" placeholder="jcastillo"></div>
+        <div><label class="lbl"><span>🔗</span> LinkedIn URL</label><input name="linkedin_url" class="input" placeholder="https://linkedin.com/in/..."></div>
+        <div><label class="lbl"><span>🌐</span> Dominio propio</label><input name="domain" class="input" placeholder="midominio.com"></div>
+        <div><label class="lbl"><span>📍</span> Ciudad</label><input name="city" class="input" placeholder="Madrid"></div>
+        <div><label class="lbl"><span>🇪🇸</span> País</label><input name="country" class="input" placeholder="ES"></div>
+
+        <div class="col-span-2"><label class="lbl"><span>📝</span> Notas / contexto extra (IPs, alias, empresa…)</label><textarea name="extra_context" class="input h-20"></textarea></div>
+
+        <div class="col-span-2"><label class="lbl">Base legal (interna, queda en audit log)</label>
+          <input name="legal_basis" class="input" value="Investigación personal lícita bajo interés legítimo (art. 6.1.f RGPD)"></div>
+
+        <div>
+          <label class="lbl">Motor IA para síntesis</label>
+          <select name="llm" class="input">
+            <option value="gemini">Gemini 2.5 Pro (Google)</option>
+            <option value="openai">ChatGPT (OpenAI)</option>
+            <option value="ollama">Ollama Cloud</option>
+            <option value="none">Sin síntesis</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 pt-2">
+        <button class="rounded-md bg-white text-black font-medium px-5 py-2.5 text-sm hover:bg-neutral-200 transition" type="submit">
+          Lanzar investigación
+        </button>
+        <span id="err" class="text-red-400 text-sm hidden"></span>
+      </div>
+    </form>
+  </section>
+
+  <!-- Recent cases -->
+  <aside class="lg:col-span-2 card p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Casos recientes</h2>
+      <button id="refresh" class="text-xs text-neutral-400 hover:text-white">↻ refrescar</button>
+    </div>
+    <ul id="cases" class="space-y-2 max-h-[34rem] overflow-auto pr-1 text-sm"></ul>
+  </aside>
+</div>
+
+<style>
+.lbl { display:flex; gap: 0.4rem; align-items:center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgb(163 163 163); margin-bottom: 0.3rem; }
+.input { width:100%; background: rgb(20 20 20); border: 1px solid rgb(38 38 38); border-radius: 0.5rem; padding: 0.55rem 0.7rem; font-size: 0.875rem; outline:none; transition: border-color 0.15s; }
+.input:focus { border-color: rgb(140 140 140); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadCases() {
+  const r = await fetch("/api/cases", { credentials: "include" });
+  if (!r.ok) return;
+  const data = await r.json();
+  const ul = document.getElementById("cases");
+  ul.innerHTML = "";
+  if (data.length === 0) {
+    ul.innerHTML = `<li class="text-xs text-neutral-500 p-4 text-center">Sin casos todavía.</li>`;
+    return;
+  }
+  for (const c of data) {
+    const li = document.createElement("li");
+    const statusColor = { queued:"bg-neutral-700", running:"bg-yellow-600", done:"bg-emerald-700", error:"bg-red-700", cancelled:"bg-neutral-700" }[c.status] || "bg-neutral-700";
+    const inputs = Object.entries(c.input_payload || {}).filter(([k])=>!["extra_context","country"].includes(k)).slice(0,4).map(([k,v])=>`<span class="tag bg-neutral-800">${escapeHtml(k)}: ${escapeHtml(String(v).slice(0,30))}</span>`).join(" ");
+    li.innerHTML = `
+      <a href="/case/${c.id}" class="block p-3 rounded border border-neutral-800 hover:border-neutral-600 transition bg-neutral-950/40">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-medium truncate">${escapeHtml(c.title)}</span>
+          <span class="tag ${statusColor} shrink-0">${c.status}</span>
+        </div>
+        <div class="flex flex-wrap gap-1 mt-1.5">${inputs}</div>
+        <div class="text-xs text-neutral-500 mt-1.5">${new Date(c.created_at).toLocaleString("es-ES")}</div>
+      </a>`;
+    ul.appendChild(li);
+  }
+}
+
+function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+document.getElementById("refresh").addEventListener("click", loadCases);
+loadCases();
+
+document.getElementById("new-case").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.currentTarget;
+  const fd = new FormData(form);
+  const payload = { title: fd.get("title"), legal_basis: fd.get("legal_basis"), llm: fd.get("llm"), input: {} };
+  for (const k of ["full_name","birth_name","aliases","email","phone","username","linkedin_url","domain","city","country","extra_context"]) {
+    const v = (fd.get(k) || "").toString().trim();
+    if (v) payload.input[k] = v;
+  }
+  if (Object.keys(payload.input).length === 0) { show_err("Proporciona al menos un campo"); return; }
+
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = "Lanzando…";
+  const r = await fetch("/api/cases", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) { show_err("Error: " + (await r.text())); btn.disabled = false; btn.textContent = "Lanzar investigación"; return; }
+  const data = await r.json();
+  location.href = "/case/" + data.case_id;
+});
+
+function show_err(msg){const e=document.getElementById("err"); e.textContent=msg; e.classList.remove("hidden");}
+</script>
+{% endblock %}

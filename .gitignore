@@ -1,0 +1,48 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Data / logs
+*.log
+data/
+/backend/app/static/dist/
+/docs/_build/
+
+# Docker volumes (locales)
+postgres_data/
+redis_data/
+caddy_data/
+caddy_config/
+backend_cache/
+backend_exports/
+
+# Node (si alguien añade frontend con build)
+node_modules/
+.next/
+dist/

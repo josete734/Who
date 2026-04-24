@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Ajustes · who{% endblock %}
+{% block body %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Ajustes</h1>
+    <p class="text-sm text-neutral-400">Configura las claves API y modelos. Se guardan en la base de datos y sobreescriben las del fichero .env.</p>
+  </div>
+  <a href="/" class="text-xs text-neutral-400 hover:text-white">← Volver</a>
+</div>
+
+<div class="card p-6 max-w-4xl">
+  <form id="settings-form" class="space-y-5">
+    <div id="fields" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    <div class="flex items-center gap-3 pt-3 border-t border-neutral-800">
+      <button type="submit" class="rounded-md bg-white text-black font-medium px-5 py-2.5 text-sm hover:bg-neutral-200">Guardar</button>
+      <span id="saved" class="text-xs text-emerald-400 hidden">✓ guardado</span>
+      <span id="err" class="text-xs text-red-400 hidden"></span>
+    </div>
+  </form>
+</div>
+
+<div class="mt-6 text-xs text-neutral-500 max-w-4xl leading-relaxed">
+  <p><strong>Secretos:</strong> las claves marcadas se muestran enmascaradas (<code class="bg-neutral-900 px-1 rounded">abcd…wxyz</code>). Si no las modificas, se conserva el valor actual. Escribe un nuevo valor completo para rotar una key.</p>
+  <p class="mt-2"><strong>LLM por defecto:</strong> cambia <code>DEFAULT_LLM</code> a <code>gemini</code>, <code>openai</code>, <code>ollama</code>, o <code>none</code> (sin síntesis).</p>
+</div>
+
+<script>
+const FIELDS = document.getElementById("fields");
+const FORM = document.getElementById("settings-form");
+const SAVED = document.getElementById("saved");
+const ERR = document.getElementById("err");
+
+const GROUPS = {
+  "LLM": ["DEFAULT_LLM", "GEMINI_API_KEY", "GEMINI_MODEL", "OPENAI_API_KEY", "OPENAI_MODEL", "OLLAMA_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_MODEL", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"],
+  "Colectores": ["GITHUB_TOKEN", "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT", "COMPANIES_HOUSE_KEY", "RAPIDAPI_KEY", "SHODAN_API_KEY", "URLSCAN_API_KEY", "LEAKIX_API_KEY", "HUNTER_API_KEY", "NUMVERIFY_API_KEY"],
+};
+
+async function loadSettings() {
+  const r = await fetch("/api/settings");
+  if (!r.ok) return;
+  const data = await r.json();
+  const byKey = Object.fromEntries(data.keys.map(k => [k.key, k]));
+  FIELDS.innerHTML = "";
+
+  for (const [groupName, keys] of Object.entries(GROUPS)) {
+    const section = document.createElement("div");
+    section.className = "md:col-span-2 mt-2";
+    section.innerHTML = `<h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-400 mb-2">${groupName}</h2>`;
+    FIELDS.appendChild(section);
+    for (const k of keys) {
+      const it = byKey[k];
+      if (!it) continue;
+      const div = document.createElement("div");
+      const type = it.is_secret ? "password" : "text";
+      div.innerHTML = `
+        <label class="lbl">${escapeHtml(it.key)} ${it.has_value?'<span class="tag bg-emerald-900 ml-2">activo</span>':'<span class="tag bg-neutral-800 ml-2">vacío</span>'}</label>
+        <input type="${type}" name="${escapeHtml(it.key)}" class="input" value="${escapeHtml(it.value || '')}" placeholder="${it.is_secret?'secret':'valor'}">`;
+      FIELDS.appendChild(div);
+    }
+  }
+}
+
+function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+FORM.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  SAVED.classList.add("hidden"); ERR.classList.add("hidden");
+  const fd = new FormData(FORM);
+  const values = {};
+  for (const [k, v] of fd.entries()) values[k] = v;
+  const r = await fetch("/api/settings", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({values}),
+  });
+  if (!r.ok) { ERR.textContent = "Error guardando"; ERR.classList.remove("hidden"); return; }
+  SAVED.classList.remove("hidden");
+  setTimeout(()=>SAVED.classList.add("hidden"), 2500);
+  loadSettings();
+});
+
+loadSettings();
+</script>
+
+<style>
+.lbl { display:flex; gap:.4rem; align-items:center; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:rgb(163 163 163); margin-bottom:.3rem; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; }
+.input { width:100%; background: rgb(20 20 20); border: 1px solid rgb(38 38 38); border-radius: 0.5rem; padding: 0.55rem 0.7rem; font-size: 0.85rem; outline:none; color: white; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; }
+.input:focus { border-color: rgb(140 140 140); }
+</style>
+{% endblock %}

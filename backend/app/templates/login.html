@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Acceder · who{% endblock %}
+{% block body %}
+<div class="max-w-md mx-auto mt-20">
+  <div class="card p-8">
+    <h1 class="text-2xl font-semibold mb-2">Acceder</h1>
+    <p class="text-neutral-400 text-sm mb-6">Introduce la contraseña.</p>
+    <form action="/login" method="post" class="space-y-4">
+      <input type="password" name="token" required autofocus
+        class="w-full rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
+        placeholder="Contraseña">
+      <button class="w-full rounded-md bg-white text-black font-medium py-2.5 text-sm hover:bg-neutral-200 transition">Entrar</button>
+      {% if error %}<p class="text-red-400 text-sm">{{ error }}</p>{% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}
