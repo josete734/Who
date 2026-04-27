@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "who — OSINT",
+  "version": "0.1.0",
+  "description": "Investigate selectors (username, email, phone, domain) via the who OSINT backend.",
+  "permissions": ["activeTab", "contextMenus", "storage"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "who — OSINT",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

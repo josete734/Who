@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026
+Copyright (c) 2026 josete734
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,39 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+────────────────────────────────────────────────────────────────────────────
+ADDITIONAL TERMS — RESPONSIBLE USE
+────────────────────────────────────────────────────────────────────────────
+
+This software is published for educational and research purposes only.
+
+By using, deploying or distributing this software you acknowledge and agree:
+
+1.  You are solely responsible for compliance with all laws applicable to
+    your operation in your jurisdiction, including but not limited to the
+    EU GDPR (Regulation 2016/679), the Spanish LOPDGDD (Ley Orgánica 3/2018),
+    the US CFAA (18 U.S.C. § 1030), the UK DPA 2018, and any analogous
+    statute, regulation or terms of service.
+
+2.  You will not use this software to harass, stalk, doxx, defame, blackmail,
+    discriminate against, or otherwise harm any natural person.
+
+3.  You will not use this software for mass surveillance, automated decision
+    making with legal consequences, or any purpose that processes special
+    categories of personal data without an explicit lawful basis.
+
+4.  You are responsible for obtaining your own API keys, OAuth applications,
+    and accepting the terms of service of every third-party platform you
+    query through this tool. The maintainers ship no shared credentials.
+
+5.  You will respect the robots.txt, rate limits, and acceptable-use
+    policies of every site this tool can reach. Where a platform's terms
+    of service prohibit scraping, the responsibility for breaching them is
+    yours, not the maintainers'.
+
+6.  THE MAINTAINERS DISCLAIM ALL LIABILITY FOR ANY USE — LAWFUL OR UNLAWFUL —
+    THAT YOU OR ANY THIRD PARTY MAKE OF THIS SOFTWARE.
+
+If you cannot accept these additional terms, you do not have permission to
+use, copy, modify or distribute this software.

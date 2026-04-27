@@ -30,41 +30,42 @@ class HIBPBreachHint(Collector):
     description = "Checks public breach search APIs (free tier) for the email."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        email = (input.email or "").lower().strip()
-        if not email:
-            return
+        for email in input.emails():
+            email = email.lower().strip()
+            if not email:
+                continue
 
-        # Attempt 1: proxynova COMB search (free, public, rate-limited).
-        try:
-            async with client(timeout=10) as c:
-                r = await c.get("https://api.proxynova.com/comb", params={"query": email})
-                if r.status_code == 200:
-                    data = r.json()
-                    lines = data.get("lines", []) or []
-                    if lines:
-                        yield Finding(
-                            collector=self.name,
-                            category="breach",
-                            entity_type="BreachHit",
-                            title=f"{len(lines)} referencias en agregador público COMB",
-                            url="https://api.proxynova.com/comb",
-                            confidence=0.65,
-                            payload={"email": email, "sample": lines[:5], "total": data.get("count")},
-                        )
-        except httpx.HTTPError:
-            pass
+            # Attempt 1: proxynova COMB search (free, public, rate-limited).
+            try:
+                async with client(timeout=10) as c:
+                    r = await c.get("https://api.proxynova.com/comb", params={"query": email})
+                    if r.status_code == 200:
+                        data = r.json()
+                        lines = data.get("lines", []) or []
+                        if lines:
+                            yield Finding(
+                                collector=self.name,
+                                category="breach",
+                                entity_type="BreachHit",
+                                title=f"{len(lines)} referencias en agregador público COMB",
+                                url="https://api.proxynova.com/comb",
+                                confidence=0.65,
+                                payload={"email": email, "sample": lines[:5], "total": data.get("count")},
+                            )
+            except httpx.HTTPError:
+                pass
 
-        # Attempt 2: breachdirectory (free tier via rapidapi — skip if no key; left as doc).
-        # Attempt 3: generate recommendation URLs for manual verification.
-        yield Finding(
-            collector=self.name,
-            category="breach",
-            entity_type="BreachLink",
-            title="Consulta manual en HaveIBeenPwned",
-            url=f"https://haveibeenpwned.com/account/{email}",
-            confidence=0.4,
-            payload={"note": "HIBP API para email es de pago. Abrir URL manualmente para comprobar."},
-        )
+            # Attempt 2: breachdirectory (free tier via rapidapi — skip if no key; left as doc).
+            # Attempt 3: generate recommendation URLs for manual verification.
+            yield Finding(
+                collector=self.name,
+                category="breach",
+                entity_type="BreachLink",
+                title="Consulta manual en HaveIBeenPwned",
+                url=f"https://haveibeenpwned.com/account/{email}",
+                confidence=0.4,
+                payload={"email": email, "note": "HIBP API para email es de pago. Abrir URL manualmente para comprobar."},
+            )
 
 
 @register

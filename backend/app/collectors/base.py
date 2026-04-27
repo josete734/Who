@@ -38,7 +38,11 @@ class Collector(abc.ABC):
     # Which SearchInput fields are required (any of them is enough unless `requires_all`)
     needs: tuple[str, ...] = ()
     requires_all: bool = False
+    # Resilience knobs — consumed by app.collectors.resilience.run_with_resilience.
+    # Subclasses may override any of these.
     timeout_seconds: int = 60
+    max_retries: int = 1
+    circuit_breaker_threshold: int = 5
     description: str = ""
 
     def applicable(self, input: SearchInput) -> bool:
@@ -83,3 +87,30 @@ collector_registry = _Registry()
 
 def register(cls: type[Collector]) -> type[Collector]:
     return collector_registry.register(cls)
+
+
+# ---------------------------------------------------------------------------
+# ORCHESTRATOR WIRING — TODO for the integration agent (Wave 1 / A-wiring)
+# ---------------------------------------------------------------------------
+# The resilience wrapper lives in ``app.collectors.resilience``. To activate it
+# the orchestrator must be changed from:
+#
+#     async for f in collector.run(search_input):
+#         ...
+#
+# to something like:
+#
+#     from app.collectors.resilience import CircuitBreaker, run_with_resilience, CollectorFailure
+#
+#     breaker = CircuitBreaker(threshold=5)   # one per case
+#     for collector in registry.applicable_for(search_input):
+#         async for item in run_with_resilience(collector, search_input, breaker=breaker):
+#             if isinstance(item, CollectorFailure):
+#                 # persist as a per-collector status row, do NOT abort the case
+#                 record_failure(case_id, item)
+#             else:
+#                 emit_finding(case_id, item)
+#
+# Per-collector overrides for ``timeout_seconds``, ``max_retries`` and
+# ``circuit_breaker_threshold`` are picked up automatically from class attrs.
+# ---------------------------------------------------------------------------

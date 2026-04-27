@@ -1,0 +1,2 @@
+weasyprint>=60
+stix2>=3.0

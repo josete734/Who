@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     ollama_api_key: str = ""
     ollama_base_url: str = "https://ollama.com"
     ollama_model: str = "gpt-oss:120b"
+    ollama_vision_model: str = "llava:13b"
+
+    # Vision pipeline (A0.2): Ollama multimodal over downloaded photos.
+    vision_enabled: bool = False
+    vision_max_per_case: int = 10
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     default_llm: str = "gemini"  # gemini | ollama | openai
@@ -39,6 +44,9 @@ class Settings(BaseSettings):
     leakix_api_key: str = ""
     hunter_api_key: str = ""
     numverify_api_key: str = ""
+    aleph_free_key: str = ""
+    intelx_free_key: str = ""
+    wigle_basic: str = ""
 
     # Limits
     default_timeout_minutes: int = 20
@@ -49,6 +57,17 @@ class Settings(BaseSettings):
     maigret_timeout: int = 60
 
     public_domain: str = "who.worldmapsound.com"
+
+    # Strava OAuth (Wave 1 / A1.2)
+    strava_client_id: str = ""
+    strava_client_secret: str = ""
+    strava_redirect_uri: str = "https://who.worldmapsound.com/strava/oauth/callback"
+    strava_encryption_key: str = ""
+
+    # CORS — restrict origins. Override via ALLOWED_ORIGINS="https://a.com,https://b.com"
+    allowed_origins: list[str] = Field(
+        default_factory=lambda: ["https://who.worldmapsound.com"]
+    )
 
     @property
     def redis_db(self) -> int:

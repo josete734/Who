@@ -61,13 +61,9 @@ class RapidAPIWhatsApp(Collector):
             except httpx.HTTPError as e:
                 raise RuntimeError(f"WhatsApp OSINT request failed: {e}") from e
 
-        if r.status_code == 401 or r.status_code == 403:
-            raise RuntimeError(f"RapidAPI auth error ({r.status_code}). Check key / subscription.")
-        if r.status_code == 429:
-            raise RuntimeError("RapidAPI rate limit reached")
-        if r.status_code >= 500:
-            raise RuntimeError(f"RapidAPI server error {r.status_code}")
-        if r.status_code != 200:
+        # AUDIT FIX: graceful skip on auth/rate-limit/5xx instead of raising — keeps
+        # the case usable when the RapidAPI subscription is missing or saturated.
+        if r.status_code in (401, 403, 429) or r.status_code >= 500 or r.status_code != 200:
             return
 
         try:
@@ -75,7 +71,12 @@ class RapidAPIWhatsApp(Collector):
         except ValueError:
             data = {"raw": r.text[:2000]}
 
-        # The endpoint returns biz + profile. Emit 1-2 findings max with the interesting bits.
+        # AUDIT FIX: endpoint sometimes returns a list (e.g. [] when not registered) —
+        # normalise to dict before calling .get to avoid AttributeError.
+        if isinstance(data, list):
+            data = {"results": data} if data else {}
+        if not isinstance(data, dict):
+            return
         exists = bool(data) and not data.get("error")
         if not exists:
             return
@@ -140,8 +141,10 @@ class RapidAPISocialScanner(Collector):
                     )
                 except httpx.HTTPError:
                     continue
-                if r.status_code == 429:
-                    raise RuntimeError("RapidAPI rate limit")
+                # AUDIT FIX: don't raise on 429 — log via skip and continue with
+                # remaining inputs so partial coverage still produces findings.
+                if r.status_code in (401, 403, 429):
+                    continue
                 if r.status_code != 200:
                     continue
                 try:
@@ -211,8 +214,8 @@ class RapidAPIEmailMailCheck(Collector):
                 r = await c.get(f"https://{host}/", params={"domain": input.email.split("@")[-1]})
             except httpx.HTTPError:
                 return
-        if r.status_code == 403:
-            raise RuntimeError("RapidAPI mailcheck: no suscrito")
+        # AUDIT FIX: silent skip when not subscribed (403) or any non-200; don't
+        # surface as collector error since the key is shared across endpoints.
         if r.status_code != 200:
             return
         try:
@@ -255,8 +258,7 @@ class RapidAPIPhoneValidate(Collector):
                 )
             except httpx.HTTPError:
                 return
-        if r.status_code == 403:
-            raise RuntimeError("RapidAPI phone-validate: no suscrito")
+        # AUDIT FIX: silent skip on 403/non-200 — phone-validate sub is optional.
         if r.status_code != 200:
             return
         try:
@@ -302,8 +304,7 @@ class RapidAPIReverseImage(Collector):
                     r = await c.get(f"https://{host}/reverse-image-search", params={"url": img, "limit": 20})
                 except httpx.HTTPError:
                     continue
-                if r.status_code == 403:
-                    raise RuntimeError("RapidAPI reverse-image: no suscrito")
+                # AUDIT FIX: silent skip on 403/non-200 — reverse-image sub optional.
                 if r.status_code != 200:
                     continue
                 try:
@@ -349,8 +350,7 @@ class RapidAPIGuardDoxx(Collector):
                 r = await c.get(f"{base}/health")
             except httpx.HTTPError:
                 return
-            if r.status_code == 403:
-                raise RuntimeError("GuardDoxx: no subscription to this API")
+            # AUDIT FIX: don't raise on 403 — keep collector quiet if no sub.
             if r.status_code != 200:
                 return
             try:

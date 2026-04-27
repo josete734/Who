@@ -19,6 +19,7 @@ class SearchInput(BaseModel):
     birth_name: str | None = None     # nombre legal completo (de pila) si difiere del habitual
     aliases: str | None = None        # variantes separadas por comas
     email: EmailStr | None = None
+    email_secondary: EmailStr | None = None
     phone: str | None = None  # E.164 preferred: +34xxx
     username: str | None = None
     linkedin_url: str | None = None
@@ -38,6 +39,19 @@ class SearchInput(BaseModel):
     def non_empty_fields(self) -> dict[str, Any]:
         d = self.model_dump(exclude_none=True)
         return {k: v for k, v in d.items() if v not in (None, "")}
+
+    def emails(self) -> list[str]:
+        """All non-empty, deduplicated email addresses (primary first)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for e in (self.email, self.email_secondary):
+            if not e:
+                continue
+            key = str(e).lower().strip()
+            if key and key not in seen:
+                seen.add(key)
+                out.append(str(e))
+        return out
 
     def name_variants(self) -> list[str]:
         """All name forms to try when searching: full_name, birth_name, each alias."""

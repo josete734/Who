@@ -4,15 +4,42 @@
 
 **Perfil digital exhaustivo de una persona a partir de fuentes abiertas.**
 
-Agregador modular de 40+ colectores OSINT con síntesis final por IA
-(Gemini / OpenAI / Ollama Cloud). Docker, streaming en vivo, panel web propio.
+Agregador modular de **96 colectores** OSINT con síntesis IA, triangulación
+geográfica de domicilio (técnica "Strava-stalking" educativa) y panel web propio.
+Docker, streaming SSE, multi-LLM (Gemini / OpenAI / Claude / Ollama).
 
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![docker](https://img.shields.io/badge/docker-compose-blue)
 ![status](https://img.shields.io/badge/status-self%20hosted-purple)
 ![python](https://img.shields.io/badge/python-3.12-yellow)
+![collectors](https://img.shields.io/badge/collectors-96-emerald)
+![education](https://img.shields.io/badge/use-educational%20only-red)
 
 </div>
+
+---
+
+## ⚠️ AVISO LEGAL — LEE ESTO PRIMERO
+
+Este software es una **referencia educativa** sobre OSINT y no un servicio
+operativo. Al desplegarlo, **te conviertes en responsable del tratamiento**
+de los datos que recolectes según el RGPD (UE 2016/679) y la LOPDGDD (Ley
+Orgánica 3/2018, España), o la legislación equivalente de tu jurisdicción.
+
+- Lee íntegramente [`DISCLAIMER.md`](DISCLAIMER.md) y [`LICENSE`](LICENSE)
+  antes de instalar nada.
+- Quienes mantenemos este código **no operamos ningún servicio público**
+  derivado de él. Cada despliegue es responsabilidad de su operador.
+- **No** uses esta herramienta para acoso, doxxing, vigilancia masiva,
+  decisiones automatizadas con efectos jurídicos, o tratar datos de
+  categorías especiales sin base de licitud explícita.
+- Las claves de APIs y credenciales OAuth las pones tú. **No incluimos
+  ninguna**.
+- Respeta los términos de uso, robots.txt y rate limits de las plataformas
+  que consultes. Si una plataforma prohíbe el scraping, la responsabilidad
+  de violarlo es tuya, no nuestra.
+
+Si no aceptas estos términos, **no tienes permiso** para usar este software.
 
 ---
 

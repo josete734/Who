@@ -3,466 +3,690 @@
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+<style>
+  .input { background: rgb(20 20 20); border: 1px solid rgb(38 38 38); border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; outline:none; color:white; }
+  .input:focus { border-color: rgb(140 140 140); }
+  .btn { background: white; color: black; padding: 0.5rem 0.95rem; border-radius: 0.5rem; font-size: 0.82rem; font-weight: 500; transition: background 0.15s; cursor:pointer; }
+  .btn:hover { background: rgb(229 229 229); }
+  .btn.secondary { background: rgb(38 38 38); color: white; }
+  .btn.secondary:hover { background: rgb(64 64 64); }
+  .btn.danger { background: rgb(127 29 29); color: white; }
+  .btn.danger:hover { background: rgb(153 27 27); }
+  .chip { display:inline-flex; align-items:center; gap:0.35rem; background: rgb(23 23 23); border:1px solid rgb(38 38 38); border-radius:9999px; padding:0.25rem 0.7rem; font-size:0.72rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:rgb(212 212 212); }
+  .chip .k { color:rgb(115 115 115); }
+  .badge-status { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.75rem; border-radius:9999px; font-size:0.72rem; font-weight:500; letter-spacing:0.02em; text-transform:uppercase; }
+  .badge-running { background: rgba(234,179,8,0.15); color: rgb(250 204 21); border:1px solid rgba(234,179,8,0.35); }
+  .badge-done { background: rgba(16,185,129,0.15); color: rgb(52 211 153); border:1px solid rgba(16,185,129,0.35); }
+  .badge-error { background: rgba(239,68,68,0.15); color: rgb(248 113 113); border:1px solid rgba(239,68,68,0.35); }
+  .badge-queued { background: rgba(115,115,115,0.15); color: rgb(212 212 212); border:1px solid rgba(115,115,115,0.35); }
+  .pulse-dot { width:8px; height:8px; border-radius:9999px; background: currentColor; animation: pulse-dot 1.4s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%,100% { transform: scale(1); opacity:1; } 50% { transform: scale(1.5); opacity:0.4; } }
+  .tab-btn { padding: 0.6rem 0.1rem; border-bottom: 2px solid transparent; color: rgb(163 163 163); font-size: 0.875rem; transition: all 0.15s; cursor:pointer; }
+  .tab-btn:hover { color: rgb(229 229 229); }
+  .tab-btn.active { border-color: rgb(229 231 235); color: rgb(245 245 245); }
+  .conf-bar { width: 100%; height: 6px; background: rgb(38 38 38); border-radius: 9999px; overflow: hidden; }
+  .conf-fill { height: 100%; transition: width 0.3s; border-radius: 9999px; }
+  .conf-low { background: rgb(239 68 68); }
+  .conf-mid { background: rgb(245 158 11); }
+  .conf-high { background: rgb(16 185 129); }
+  .cat-account, .cat-username, .cat-social { background: rgba(56,189,248,0.15); color: rgb(125 211 252); border:1px solid rgba(56,189,248,0.3); }
+  .cat-breach { background: rgba(239,68,68,0.15); color: rgb(248 113 113); border:1px solid rgba(239,68,68,0.3); }
+  .cat-geo, .cat-location { background: rgba(16,185,129,0.15); color: rgb(52 211 153); border:1px solid rgba(16,185,129,0.3); }
+  .cat-sport { background: rgba(249,115,22,0.15); color: rgb(251 146 60); border:1px solid rgba(249,115,22,0.3); }
+  .cat-email { background: rgba(168,85,247,0.15); color: rgb(192 132 252); border:1px solid rgba(168,85,247,0.3); }
+  .cat-phone { background: rgba(236,72,153,0.15); color: rgb(244 114 182); border:1px solid rgba(236,72,153,0.3); }
+  .cat-default { background: rgb(38 38 38); color: rgb(212 212 212); border:1px solid rgb(64 64 64); }
+  .cat-pill { display:inline-flex; align-items:center; padding:0.15rem 0.55rem; border-radius:0.4rem; font-size:0.7rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  table.findings-tbl { width:100%; font-size:0.82rem; border-collapse: collapse; }
+  table.findings-tbl thead th { text-align:left; padding:0.55rem 0.6rem; background: rgb(15 15 15); border-bottom:1px solid rgb(38 38 38); font-weight:500; color: rgb(163 163 163); cursor:pointer; user-select:none; white-space:nowrap; }
+  table.findings-tbl thead th:hover { color: rgb(229 229 229); }
+  table.findings-tbl thead th .arrow { opacity: 0.4; font-size:0.65rem; margin-left:0.2rem; }
+  table.findings-tbl tbody td { padding: 0.55rem 0.6rem; border-bottom: 1px solid rgb(23 23 23); vertical-align: middle; }
+  table.findings-tbl tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .filters-sticky { position: sticky; top: 64px; z-index: 10; background: rgba(10,10,10,0.92); backdrop-filter: blur(8px); padding: 0.6rem 0; border-bottom:1px solid rgb(23 23 23); margin-bottom: 0.6rem; }
+  .timeline-list { position: relative; padding-left: 1.4rem; }
+  .timeline-list::before { content:""; position:absolute; left: 0.5rem; top: 0; bottom: 0; width: 2px; background: rgb(38 38 38); }
+  .tl-item { position: relative; padding-bottom: 1.2rem; }
+  .tl-item::before { content:""; position:absolute; left: -1.05rem; top: 0.35rem; width: 0.7rem; height: 0.7rem; border-radius: 9999px; background: rgb(64 64 64); border: 2px solid rgb(10 10 10); }
+  .tl-item.kind-account::before { background: rgb(56 189 248); }
+  .tl-item.kind-breach::before { background: rgb(239 68 68); }
+  .tl-item.kind-location::before { background: rgb(16 185 129); }
+  .tl-item.kind-sport::before { background: rgb(249 115 22); }
+  .modal-backdrop { position: fixed; inset:0; background: rgba(0,0,0,0.75); z-index: 50; display:none; align-items:center; justify-content:center; padding: 1rem; }
+  .modal-backdrop.open { display:flex; }
+  .modal-box { background: rgb(15 15 15); border:1px solid rgb(38 38 38); border-radius: 0.75rem; max-width: 720px; width:100%; max-height: 80vh; overflow:auto; padding: 1.2rem; }
+  .toast-stack { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 60; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
+  .toast { background: rgb(23 23 23); border:1px solid rgb(64 64 64); border-radius: 0.6rem; padding: 0.7rem 1rem; font-size: 0.85rem; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.4); animation: toast-in 0.25s ease; pointer-events:auto; }
+  @keyframes toast-in { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .live-panel { background: linear-gradient(135deg, rgba(234,179,8,0.08), rgba(16,185,129,0.05)); border: 1px solid rgba(234,179,8,0.3); border-radius: 0.85rem; padding: 1rem 1.2rem; }
+</style>
 {% endblock %}
 {% block body %}
 
-<!-- Header -->
-<div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
-  <div class="min-w-0">
-    <h1 id="case-title" class="text-2xl font-semibold truncate">Caso</h1>
-    <p id="case-sub" class="text-xs text-neutral-500 mt-0.5 font-mono"></p>
+<!-- ============= HEADER ============= -->
+<div class="mb-5">
+  <div class="flex items-start justify-between gap-4 flex-wrap mb-3">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-3 flex-wrap mb-1.5">
+        <h1 id="case-title" class="text-3xl font-semibold tracking-tight truncate">Caso</h1>
+        <span id="status-badge" class="badge-status badge-queued"><span class="pulse-dot"></span><span id="status-text">…</span></span>
+      </div>
+      <div class="text-xs text-neutral-500 flex flex-wrap gap-x-4 gap-y-1 font-mono">
+        <span id="case-created">creado: —</span>
+        <span id="case-duration">duración: —</span>
+        <span id="case-id-mono" class="text-neutral-600"></span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap no-print">
+      <button id="btn-relaunch" class="btn secondary" title="Re-lanzar el caso">↻ Re-lanzar</button>
+      <button id="btn-export-pdf" class="btn secondary" title="Exportar a PDF (imprimir)">⤓ Exportar PDF</button>
+      <a id="btn-v2" href="#" class="btn secondary" title="Abrir vista visual /v2">◐ Ver en /v2</a>
+      <button id="btn-delete" class="btn danger" title="Borrar caso">✕ Borrar</button>
+      <a href="/" class="text-xs text-neutral-400 hover:text-white ml-2">← Inicio</a>
+    </div>
   </div>
-  <div class="flex items-center gap-2">
-    <span id="status-pill" class="tag bg-neutral-800">...</span>
-    <span id="progress-pct" class="tag bg-neutral-800 font-mono">0%</span>
-    <a href="/" class="text-xs text-neutral-400 hover:text-white ml-3">← Inicio</a>
+
+  <!-- Input chips -->
+  <div id="chips" class="flex flex-wrap gap-1.5"></div>
+</div>
+
+<!-- ============= LIVE PANEL ============= -->
+<div id="live-panel" class="live-panel mb-5 hidden no-print">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div class="flex items-center gap-3">
+      <span class="pulse-dot text-amber-400"></span>
+      <div>
+        <div class="text-sm font-medium text-amber-200">En vivo</div>
+        <div class="text-xs text-neutral-400" id="live-summary">esperando eventos…</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-5 text-xs">
+      <div><span class="text-neutral-500">Corriendo:</span> <span id="live-running" class="font-mono text-amber-300 font-semibold">0</span></div>
+      <div><span class="text-neutral-500">Hallazgos:</span> <span id="live-findings" class="font-mono text-emerald-300 font-semibold">0</span></div>
+      <div><span class="text-neutral-500">Última act.:</span> <span id="live-last" class="font-mono text-neutral-300">—</span></div>
+    </div>
+  </div>
+  <div class="w-full h-1 rounded-full bg-neutral-900 overflow-hidden mt-3">
+    <div id="progress-bar" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
   </div>
 </div>
 
-<!-- Live progress bar -->
-<div class="w-full h-1 rounded-full bg-neutral-900 overflow-hidden mb-6 no-print">
-  <div id="progress-bar" class="h-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
+<!-- ============= TABS ============= -->
+<div class="border-b border-neutral-800 mb-5 flex gap-6 no-print flex-wrap">
+  <button data-tab="resumen" class="tab-btn active">Resumen</button>
+  <button data-tab="findings" class="tab-btn">Hallazgos <span class="tag bg-neutral-800 ml-1" id="t-find-pill">0</span></button>
+  <button data-tab="colectores" class="tab-btn">Colectores <span class="tag bg-neutral-800 ml-1" id="t-col-pill">0</span></button>
+  <button data-tab="timeline" class="tab-btn">Cronología <span class="tag bg-neutral-800 ml-1" id="t-tl-pill">0</span></button>
+  <button data-tab="mapa" class="tab-btn">Mapa</button>
 </div>
 
-<!-- Stats grid -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Hallazgos</div><div class="stat-num text-3xl" id="stat-total">0</div></div>
-  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Colectores</div><div class="stat-num text-3xl"><span id="col-done">0</span><span class="text-neutral-500 text-xl">/<span id="col-total">0</span></span></div></div>
-  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Perfiles sociales</div><div class="stat-num text-3xl" id="stat-profiles">0</div></div>
-  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Emails</div><div class="stat-num text-3xl" id="stat-emails">0</div></div>
-  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Teléfonos</div><div class="stat-num text-3xl" id="stat-phones">0</div></div>
-  <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Brechas</div><div class="stat-num text-3xl text-red-400" id="stat-breaches">0</div></div>
-</div>
+<!-- ============= TAB: RESUMEN ============= -->
+<section data-panel="resumen" class="panel">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+    <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Runs totales</div><div class="stat-num text-3xl" id="m-runs">0</div></div>
+    <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Con hallazgos</div><div class="stat-num text-3xl text-emerald-400" id="m-runs-found">0</div></div>
+    <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Errores</div><div class="stat-num text-3xl text-red-400" id="m-errors">0</div></div>
+    <div class="stat-card"><div class="text-xs text-neutral-400 mb-1">Duración media</div><div class="stat-num text-3xl" id="m-avg">—</div></div>
+  </div>
 
-<!-- Tabs -->
-<div class="border-b border-neutral-800 mb-5 flex gap-5 text-sm no-print flex-wrap">
-  <button data-tab="syn" class="tab py-2 border-b-2 tab-active">Síntesis IA</button>
-  <button data-tab="prof" class="tab py-2 border-b-2 tab-inactive">Perfiles <span class="tag bg-neutral-800 ml-1" id="prof-pill">0</span></button>
-  <button data-tab="pics" class="tab py-2 border-b-2 tab-inactive">Fotos <span class="tag bg-neutral-800 ml-1" id="pics-pill">0</span></button>
-  <button data-tab="find" class="tab py-2 border-b-2 tab-inactive">Hallazgos <span class="tag bg-neutral-800 ml-1" id="find-pill">0</span></button>
-  <button data-tab="col" class="tab py-2 border-b-2 tab-inactive">Colectores</button>
-  <button data-tab="exp" class="tab py-2 border-b-2 tab-inactive">Exportar</button>
-</div>
-
-<!-- Tab: Síntesis -->
-<section data-panel="syn" class="panel">
   <div class="card p-6 md:p-8">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Síntesis IA</h2>
+      <span id="syn-model" class="text-xs text-neutral-500 font-mono"></span>
+    </div>
     <div id="syn-status" class="flex items-center gap-2 text-sm text-neutral-400 mb-4">
       <span class="spinner"></span>
       <span id="syn-status-text">Esperando a que terminen los colectores…</span>
     </div>
     <article id="synthesis" class="prose prose-invert prose-lg max-w-none"></article>
-    <div id="syn-empty" class="text-center text-neutral-500 py-10 hidden">Sin síntesis todavía.</div>
+    <div id="syn-empty" class="text-center text-neutral-500 py-10 hidden">Sin síntesis disponible todavía.</div>
   </div>
 </section>
 
-<!-- Tab: Perfiles -->
-<section data-panel="prof" class="panel hidden">
-  <div class="flex items-center justify-between mb-3">
-    <h2 class="text-lg font-semibold">Perfiles detectados</h2>
-    <button onclick="loadProfiles()" class="text-xs text-neutral-400 hover:text-white">↻ refrescar</button>
-  </div>
-  <div id="profile-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"></div>
-  <div id="profile-empty" class="text-center text-neutral-500 py-10 hidden">Sin perfiles aún.</div>
-</section>
-
-<!-- Tab: Fotos -->
-<section data-panel="pics" class="panel hidden">
-  <div class="flex items-center justify-between mb-3">
-    <h2 class="text-lg font-semibold">Galería visual</h2>
-    <button onclick="loadPhotos()" class="text-xs text-neutral-400 hover:text-white">↻ refrescar</button>
-  </div>
-  <div id="photo-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
-  <div id="photo-empty" class="text-center text-neutral-500 py-10 hidden">Sin fotos aún.</div>
-</section>
-
-<!-- Tab: Hallazgos -->
-<section data-panel="find" class="panel hidden">
-  <div class="flex items-center gap-2 mb-3 flex-wrap">
-    <input id="q" class="input max-w-xs" placeholder="filtrar título / url…">
-    <select id="cat-filter" class="input max-w-[12rem]"><option value="">Todas las categorías</option></select>
-    <select id="coll-filter" class="input max-w-[14rem]"><option value="">Todos los colectores</option></select>
-    <span class="text-xs text-neutral-500 ml-auto" id="count"></span>
-  </div>
-  <div id="find-groups" class="space-y-3"></div>
-</section>
-
-<!-- Tab: Colectores -->
-<section data-panel="col" class="panel hidden">
-  <div id="col-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
-</section>
-
-<!-- Tab: Export -->
-<section data-panel="exp" class="panel hidden">
-  <div class="card p-6 space-y-3">
-    <h2 class="font-semibold text-lg mb-2">Exportar</h2>
-    <div class="flex gap-3 flex-wrap">
-      <button onclick="downloadJSON()" class="btn">Descargar JSON (hallazgos)</button>
-      <button onclick="downloadMarkdown()" class="btn">Descargar Markdown (síntesis)</button>
-      <button onclick="downloadFullReport()" class="btn">Informe completo (Markdown)</button>
-      <button onclick="window.print()" class="btn">Imprimir / PDF</button>
+<!-- ============= TAB: FINDINGS ============= -->
+<section data-panel="findings" class="panel hidden">
+  <div class="filters-sticky">
+    <div class="flex items-center gap-2 flex-wrap">
+      <input id="f-q" class="input flex-1 min-w-[14rem]" placeholder="🔎 Búsqueda fulltext en título…">
+      <select id="f-coll" class="input"><option value="">Todos los colectores</option></select>
+      <select id="f-cat" class="input"><option value="">Todas las categorías</option></select>
+      <select id="f-ent" class="input"><option value="">Todos los tipos</option></select>
+      <select id="f-conf" class="input">
+        <option value="0">Confianza ≥ 0%</option>
+        <option value="0.3">≥ 30%</option>
+        <option value="0.6">≥ 60%</option>
+        <option value="0.8">≥ 80%</option>
+      </select>
+      <button id="f-csv" class="btn secondary" title="Exportar CSV">⤓ CSV</button>
+      <span class="text-xs text-neutral-500 ml-1" id="f-count">0</span>
     </div>
-    <p class="text-xs text-neutral-500 pt-2">El informe completo incluye la síntesis IA y la tabla completa de hallazgos con fuente y URL.</p>
+  </div>
+  <div id="findings-empty" class="text-center text-neutral-500 py-16 hidden">
+    <div class="text-4xl mb-3 opacity-40">∅</div>
+    <div>No hay hallazgos que coincidan con los filtros.</div>
+  </div>
+  <div class="overflow-x-auto rounded-lg border border-neutral-800">
+    <table class="findings-tbl" id="f-table">
+      <thead>
+        <tr>
+          <th data-sort="collector">Colector <span class="arrow">↕</span></th>
+          <th data-sort="category">Categoría <span class="arrow">↕</span></th>
+          <th data-sort="entity_type">Tipo <span class="arrow">↕</span></th>
+          <th data-sort="title">Título <span class="arrow">↕</span></th>
+          <th data-sort="confidence">Confianza <span class="arrow">↕</span></th>
+          <th>Detalles</th>
+        </tr>
+      </thead>
+      <tbody id="f-tbody"></tbody>
+    </table>
   </div>
 </section>
 
-<style>
-.input { background: rgb(20 20 20); border: 1px solid rgb(38 38 38); border-radius: 0.5rem; padding: 0.4rem 0.7rem; font-size: 0.85rem; outline:none; color:white; }
-.input:focus { border-color: rgb(140 140 140); }
-.btn { background: white; color: black; padding: 0.55rem 1.1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; transition: background 0.15s; }
-.btn:hover { background: rgb(229 229 229); }
-.btn.secondary { background: rgb(38 38 38); color: white; }
-.btn.secondary:hover { background: rgb(64 64 64); }
-.prose-invert h1, .prose-invert h2 { border-bottom: 1px solid rgb(38 38 38); padding-bottom: 0.3rem; }
-.prose-invert h1 { font-size: 1.8rem; }
-.prose-invert h2 { font-size: 1.35rem; margin-top: 1.5rem; }
-.prose-invert table { font-size: 0.85rem; }
-.prose-invert code { background: rgb(38 38 38); padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
-</style>
+<!-- ============= TAB: COLECTORES ============= -->
+<section data-panel="colectores" class="panel hidden">
+  <div id="col-list" class="space-y-2"></div>
+  <div id="col-empty" class="text-center text-neutral-500 py-16 hidden">
+    <div class="text-4xl mb-3 opacity-40">∅</div>
+    <div>Aún no hay colectores ejecutados.</div>
+  </div>
+</section>
+
+<!-- ============= TAB: TIMELINE ============= -->
+<section data-panel="timeline" class="panel hidden">
+  <div class="card p-5">
+    <div id="timeline-list" class="timeline-list"></div>
+    <div id="timeline-empty" class="text-center text-neutral-500 py-12 hidden">
+      <div class="text-4xl mb-3 opacity-40">∅</div>
+      <div>Sin eventos cronológicos.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============= TAB: MAPA ============= -->
+<section data-panel="mapa" class="panel hidden">
+  <div class="card p-8 text-center">
+    <div class="text-5xl mb-4 opacity-40">🗺</div>
+    <h2 class="text-xl font-semibold mb-2">Mapa interactivo</h2>
+    <p class="text-neutral-400 max-w-lg mx-auto mb-5">El mapa con Leaflet, heatmap y clusters geográficos vive en la vista visual /v2 para evitar duplicar dependencias.</p>
+    <a id="map-link" href="#" class="btn">Abrir mapa en /v2 →</a>
+  </div>
+</section>
+
+<!-- Modal payload -->
+<div id="payload-modal" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold">Payload (JSON)</h3>
+      <button onclick="closeModal()" class="text-neutral-400 hover:text-white">✕</button>
+    </div>
+    <pre id="payload-content" class="text-xs bg-neutral-950 p-4 rounded font-mono"></pre>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" class="toast-stack"></div>
 
 <script>
 const CASE_ID = "{{ case_id }}";
-const PILL = document.getElementById("status-pill");
-const TITLE_EL = document.getElementById("case-title");
-const SUB_EL = document.getElementById("case-sub");
-const SYN = document.getElementById("synthesis");
-const SYN_STATUS_TEXT = document.getElementById("syn-status-text");
-const SYN_STATUS = document.getElementById("syn-status");
-const SYN_EMPTY = document.getElementById("syn-empty");
-const COL_GRID = document.getElementById("col-grid");
-const COL_DONE = document.getElementById("col-done");
-const COL_TOTAL = document.getElementById("col-total");
-const FIND_GROUPS = document.getElementById("find-groups");
-const FIND_PILL = document.getElementById("find-pill");
-const COUNT = document.getElementById("count");
-const Q = document.getElementById("q");
-const CATFILTER = document.getElementById("cat-filter");
-const COLLFILTER = document.getElementById("coll-filter");
-const PROGRESS_BAR = document.getElementById("progress-bar");
-const PROGRESS_PCT = document.getElementById("progress-pct");
 
-// Stats
-const STAT_TOTAL = document.getElementById("stat-total");
-const STAT_PROFILES = document.getElementById("stat-profiles");
-const STAT_EMAILS = document.getElementById("stat-emails");
-const STAT_PHONES = document.getElementById("stat-phones");
-const STAT_BREACHES = document.getElementById("stat-breaches");
+// State
+const state = {
+  meta: null,
+  findings: [],
+  collectors: new Map(),  // name -> {status, count, duration_ms, message, started_at}
+  totalCollectors: 0,
+  timeline: [],
+  sort: { key: "confidence", dir: -1 },
+};
 
-const collectorState = new Map();
-const findings = [];
-const categories = new Set();
-const collectorsSeen = new Set();
-let totalCollectors = 0;
-let caseMeta = null;
+// Element refs
+const $ = id => document.getElementById(id);
+const TITLE = $("case-title"), STATUS_BADGE = $("status-badge"), STATUS_TEXT = $("status-text");
+const CHIPS = $("chips"), CASE_CREATED = $("case-created"), CASE_DUR = $("case-duration"), CASE_IDM = $("case-id-mono");
+const LIVE_PANEL = $("live-panel"), LIVE_RUN = $("live-running"), LIVE_FIND = $("live-findings"), LIVE_LAST = $("live-last"), LIVE_SUM = $("live-summary"), PROGRESS = $("progress-bar");
+const SYN = $("synthesis"), SYN_STATUS = $("syn-status"), SYN_STATUS_TEXT = $("syn-status-text"), SYN_EMPTY = $("syn-empty"), SYN_MODEL = $("syn-model");
+const M_RUNS = $("m-runs"), M_FOUND = $("m-runs-found"), M_ERR = $("m-errors"), M_AVG = $("m-avg");
+const T_FIND = $("t-find-pill"), T_COL = $("t-col-pill"), T_TL = $("t-tl-pill");
+const F_Q = $("f-q"), F_COLL = $("f-coll"), F_CAT = $("f-cat"), F_ENT = $("f-ent"), F_CONF = $("f-conf"), F_TBODY = $("f-tbody"), F_COUNT = $("f-count"), F_EMPTY = $("findings-empty");
+const COL_LIST = $("col-list"), COL_EMPTY = $("col-empty");
+const TL_LIST = $("timeline-list"), TL_EMPTY = $("timeline-empty");
 
-// --- Tabs ---
-for (const btn of document.querySelectorAll(".tab")) {
+// ============= UTILS =============
+function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtDate(s){ if(!s) return "—"; try { return new Date(s).toLocaleString("es-ES"); } catch { return s; } }
+function fmtDuration(ms){ if(!ms && ms!==0) return "—"; if(ms<1000) return ms+"ms"; const s=ms/1000; if(s<60) return s.toFixed(1)+"s"; const m=Math.floor(s/60); return `${m}m ${Math.round(s%60)}s`; }
+function catClass(cat){ const c = (cat||"").toLowerCase(); if(["account","username","social","profile"].includes(c)) return "cat-account"; if(c==="breach") return "cat-breach"; if(["geo","location","place"].includes(c)) return "cat-geo"; if(c==="sport") return "cat-sport"; if(c==="email") return "cat-email"; if(c==="phone") return "cat-phone"; return "cat-default"; }
+function confClass(c){ if(c<0.3) return "conf-low"; if(c<0.6) return "conf-mid"; return "conf-high"; }
+
+function toast(msg, ms=4000){
+  const div = document.createElement("div");
+  div.className = "toast"; div.textContent = msg;
+  $("toasts").appendChild(div);
+  setTimeout(()=>{ div.style.transition = "opacity .3s"; div.style.opacity = "0"; setTimeout(()=>div.remove(), 320); }, ms);
+}
+
+function setStatusBadge(s){
+  STATUS_TEXT.textContent = s || "—";
+  STATUS_BADGE.classList.remove("badge-running","badge-done","badge-error","badge-queued");
+  if (s === "running") STATUS_BADGE.classList.add("badge-running");
+  else if (s === "done" || s === "ok") STATUS_BADGE.classList.add("badge-done");
+  else if (s === "error" || s === "failed") STATUS_BADGE.classList.add("badge-error");
+  else STATUS_BADGE.classList.add("badge-queued");
+}
+
+// ============= TABS =============
+for (const btn of document.querySelectorAll(".tab-btn")) {
   btn.addEventListener("click", () => {
     const t = btn.dataset.tab;
-    for (const b of document.querySelectorAll(".tab")) {
-      b.classList.toggle("tab-active", b.dataset.tab === t);
-      b.classList.toggle("tab-inactive", b.dataset.tab !== t);
-    }
-    for (const p of document.querySelectorAll(".panel")) {
-      p.classList.toggle("hidden", p.dataset.panel !== t);
-    }
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === t));
+    document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden", p.dataset.panel !== t));
+    if (t === "timeline") loadTimeline();
   });
 }
 
-// --- Helpers ---
-const STATUS_COLORS = {queued:"bg-neutral-700", running:"bg-yellow-600", ok:"bg-emerald-700", error:"bg-red-700", timeout:"bg-orange-700", done:"bg-emerald-700", cancelled:"bg-neutral-700"};
-function statusCls(s){return "tag " + (STATUS_COLORS[s] || "bg-neutral-700");}
-function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function updateProgress(){
-  const pct = totalCollectors ? Math.round(100 * Array.from(collectorState.values()).filter(s=>["ok","error","timeout","cancelled"].includes(s.status)).length / totalCollectors) : 0;
-  PROGRESS_BAR.style.width = pct + "%";
-  PROGRESS_PCT.textContent = pct + "%";
-}
-function recomputeStats(){
-  STAT_TOTAL.textContent = findings.length;
-  const uniq = (key) => new Set(findings.filter(f=>f.category===key).map(f=>f.url||f.title)).size;
-  STAT_PROFILES.textContent = findings.filter(f=>f.category==="username" || f.category==="social").length;
-  STAT_EMAILS.textContent = uniq("email");
-  STAT_PHONES.textContent = uniq("phone");
-  STAT_BREACHES.textContent = findings.filter(f=>f.category==="breach").length;
-  FIND_PILL.textContent = findings.length;
+// ============= HEADER ACTIONS =============
+$("btn-v2").href = `/v2/case/${CASE_ID}`;
+$("map-link").href = `/v2/case/${CASE_ID}#map`;
+
+$("btn-relaunch").addEventListener("click", async () => {
+  if (!confirm("¿Re-lanzar el caso? Se ejecutarán de nuevo los colectores.")) return;
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}/relaunch`, { method: "POST", credentials: "include" });
+    if (r.ok) { toast("Caso re-lanzado"); setTimeout(()=>location.reload(), 800); }
+    else toast("Error al re-lanzar (" + r.status + ")");
+  } catch(e) { toast("Error de red"); }
+});
+
+$("btn-export-pdf").addEventListener("click", () => window.print());
+
+$("btn-delete").addEventListener("click", async () => {
+  if (!confirm("¿Borrar caso definitivamente? Esta acción no se puede deshacer.")) return;
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}`, { method: "DELETE", credentials: "include" });
+    if (r.ok) { toast("Caso borrado"); setTimeout(()=>location.href = "/", 700); }
+    else toast("Error al borrar (" + r.status + ")");
+  } catch(e) { toast("Error de red"); }
+});
+
+// ============= LOAD META =============
+async function loadMeta() {
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}`, { credentials: "include" });
+    if (!r.ok) { toast("No se pudo cargar el caso"); return; }
+    const meta = await r.json();
+    state.meta = meta;
+    TITLE.textContent = meta.title || "Caso";
+    setStatusBadge(meta.status);
+    CASE_CREATED.textContent = "creado: " + fmtDate(meta.created_at);
+    if (meta.finished_at && meta.created_at) {
+      const dur = new Date(meta.finished_at) - new Date(meta.created_at);
+      CASE_DUR.textContent = "duración: " + fmtDuration(dur);
+    } else if (meta.created_at && meta.status === "running") {
+      const dur = Date.now() - new Date(meta.created_at).getTime();
+      CASE_DUR.textContent = "duración: " + fmtDuration(dur) + " (en curso)";
+    }
+    CASE_IDM.textContent = "id: " + (meta.id || CASE_ID).slice(0,8);
+
+    // Chips
+    const inp = meta.input_payload || {};
+    const order = ["nombre","name","email","email_secondary","telefono","phone","ciudad","city"];
+    const entries = Object.entries(inp).filter(([k,v])=>v && k!=="extra_context").sort((a,b)=>{
+      const ai = order.indexOf(a[0]), bi = order.indexOf(b[0]);
+      return (ai===-1?99:ai) - (bi===-1?99:bi);
+    });
+    CHIPS.innerHTML = entries.map(([k,v]) => `<span class="chip"><span class="k">${escapeHtml(k)}</span> ${escapeHtml(String(v))}</span>`).join("");
+
+    // Synthesis
+    if (meta.synthesis_markdown) {
+      SYN.innerHTML = DOMPurify.sanitize(marked.parse(meta.synthesis_markdown));
+      SYN_STATUS.classList.add("hidden");
+    } else if (meta.status === "done") {
+      SYN_STATUS.classList.add("hidden");
+      SYN_EMPTY.classList.remove("hidden");
+    }
+    if (meta.synthesis_model) SYN_MODEL.textContent = meta.synthesis_model;
+
+    // Live panel only while running
+    LIVE_PANEL.classList.toggle("hidden", meta.status !== "running");
+  } catch(e) { console.warn(e); }
 }
 
-// --- Render collectors grid ---
-function renderCollectors() {
-  COL_GRID.innerHTML = "";
-  const entries = [...collectorState.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
-  for (const [name, s] of entries) {
-    const div = document.createElement("div");
-    div.className = "stat-card flex items-center justify-between";
-    const icon = s.status === "running" ? `<span class="spinner"></span>` : "";
-    div.innerHTML = `
-      <div class="min-w-0">
-        <div class="font-mono text-sm truncate">${icon} ${name}</div>
-        <div class="text-xs text-neutral-500 mt-1">${s.status}${s.duration_ms?` · ${Math.round(s.duration_ms/100)/10}s`:""}${s.message?` · <span class="text-red-400">${escapeHtml(s.message.slice(0,120))}</span>`:""}</div>
-      </div>
-      <span class="stat-num text-2xl">${s.count || 0}</span>`;
-    COL_GRID.appendChild(div);
+// ============= LOAD COLLECTORS =============
+async function loadCollectors() {
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}/collectors`, { credentials: "include" });
+    if (!r.ok) return;
+    const data = await r.json();
+    const runs = data.collectors || data.runs || data || [];
+    state.totalCollectors = runs.length;
+    for (const run of runs) {
+      const name = run.collector || run.name;
+      state.collectors.set(name, {
+        status: run.status,
+        count: run.findings_count ?? run.count ?? 0,
+        duration_ms: run.duration_ms,
+        message: run.error_message || run.message,
+        started_at: run.started_at,
+      });
+    }
+    renderCollectors();
+    renderMetrics();
+  } catch(e) { console.warn("collectors:", e); }
+}
+
+// ============= LOAD FINDINGS =============
+async function loadFindings() {
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}/findings`, { credentials: "include" });
+    if (!r.ok) return;
+    const data = await r.json();
+    const items = data.findings || data.items || data || [];
+    state.findings = items;
+    rebuildFilters();
+    renderFindings();
+    renderMetrics();
+  } catch(e) { console.warn("findings:", e); }
+}
+
+// ============= LOAD TIMELINE =============
+let timelineLoaded = false;
+async function loadTimeline() {
+  if (timelineLoaded) return;
+  timelineLoaded = true;
+  try {
+    const r = await fetch(`/api/cases/${CASE_ID}/timeline`, { credentials: "include" });
+    if (!r.ok) { TL_EMPTY.classList.remove("hidden"); return; }
+    const data = await r.json();
+    const events = data.events || data.timeline || data || [];
+    state.timeline = events;
+    renderTimeline();
+  } catch(e) { TL_EMPTY.classList.remove("hidden"); }
+}
+
+// ============= METRICS =============
+function renderMetrics() {
+  const runs = [...state.collectors.values()];
+  M_RUNS.textContent = runs.length;
+  M_FOUND.textContent = runs.filter(r => (r.count||0) > 0).length;
+  M_ERR.textContent = runs.filter(r => r.status === "error" || r.status === "timeout").length;
+  const durs = runs.filter(r => r.duration_ms).map(r => r.duration_ms);
+  M_AVG.textContent = durs.length ? fmtDuration(Math.round(durs.reduce((a,b)=>a+b,0)/durs.length)) : "—";
+  T_COL.textContent = runs.length;
+  T_FIND.textContent = state.findings.length;
+  T_TL.textContent = state.timeline.length;
+
+  // Live progress
+  const done = runs.filter(r => ["ok","error","timeout","done","cancelled"].includes(r.status)).length;
+  const running = runs.filter(r => r.status === "running").length;
+  const total = state.totalCollectors || runs.length;
+  const pct = total ? Math.round(100 * done / total) : 0;
+  PROGRESS.style.width = pct + "%";
+  LIVE_RUN.textContent = running;
+  LIVE_FIND.textContent = state.findings.length;
+  LIVE_SUM.textContent = `${done}/${total} colectores · ${pct}% completado`;
+}
+
+// ============= FILTERS =============
+function rebuildFilters() {
+  const cats = new Set(), colls = new Set(), ents = new Set();
+  for (const f of state.findings) {
+    if (f.category) cats.add(f.category);
+    if (f.collector) colls.add(f.collector);
+    if (f.entity_type) ents.add(f.entity_type);
   }
-  COL_DONE.textContent = entries.filter(([,s])=>["ok","error","timeout","cancelled"].includes(s.status)).length;
-  COL_TOTAL.textContent = totalCollectors || entries.length;
-  updateProgress();
+  syncSelect(F_CAT, cats, "Todas las categorías");
+  syncSelect(F_COLL, colls, "Todos los colectores");
+  syncSelect(F_ENT, ents, "Todos los tipos");
 }
+function syncSelect(sel, values, allLabel) {
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${allLabel}</option>`;
+  [...values].sort().forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); });
+  if ([...values].includes(cur)) sel.value = cur;
+}
+[F_Q, F_COLL, F_CAT, F_ENT, F_CONF].forEach(el => el.addEventListener("input", renderFindings));
 
-// --- Render findings (grouped accordion) ---
-function renderFindings(){
-  const q = Q.value.trim().toLowerCase();
-  const cat = CATFILTER.value;
-  const coll = COLLFILTER.value;
+// ============= SORT =============
+document.querySelectorAll("#f-table thead th[data-sort]").forEach(th => {
+  th.addEventListener("click", () => {
+    const k = th.dataset.sort;
+    if (state.sort.key === k) state.sort.dir = -state.sort.dir;
+    else { state.sort.key = k; state.sort.dir = 1; }
+    document.querySelectorAll("#f-table thead th .arrow").forEach(a => a.textContent = "↕");
+    th.querySelector(".arrow").textContent = state.sort.dir > 0 ? "▲" : "▼";
+    renderFindings();
+  });
+});
 
-  const filtered = findings.filter(f => {
+// ============= RENDER FINDINGS =============
+function getFiltered() {
+  const q = F_Q.value.trim().toLowerCase();
+  const cat = F_CAT.value, coll = F_COLL.value, ent = F_ENT.value;
+  const minC = parseFloat(F_CONF.value) || 0;
+  return state.findings.filter(f => {
     if (cat && f.category !== cat) return false;
     if (coll && f.collector !== coll) return false;
-    if (q && !(f.title||"").toLowerCase().includes(q) && !(f.url||"").toLowerCase().includes(q)) return false;
+    if (ent && f.entity_type !== ent) return false;
+    if ((f.confidence||0) < minC) return false;
+    if (q && !(f.title||"").toLowerCase().includes(q)) return false;
     return true;
   });
-
-  const byCat = {};
-  for (const f of filtered) { (byCat[f.category] ??= []).push(f); }
-
-  FIND_GROUPS.innerHTML = "";
-  const order = ["username","email","phone","name","social","es_official","code","academic","breach","archive","knowledge","domain","infra","dork"];
-  const keys = Object.keys(byCat).sort((a,b)=>{
-    const ai = order.indexOf(a), bi = order.indexOf(b);
-    return (ai===-1?99:ai) - (bi===-1?99:bi);
-  });
-
-  for (const c of keys) {
-    const items = byCat[c];
-    const det = document.createElement("details");
-    det.open = true;
-    det.className = "card";
-    det.innerHTML = `
-      <summary class="p-4 flex items-center justify-between">
-        <span class="font-medium">${escapeHtml(c)}</span>
-        <span class="tag bg-neutral-800">${items.length}</span>
-      </summary>
-      <div class="px-4 pb-4 space-y-2">${items.map(renderFinding).join("")}</div>`;
-    FIND_GROUPS.appendChild(det);
-  }
-  COUNT.textContent = `${filtered.length} / ${findings.length}`;
 }
 
-function renderFinding(f){
-  const conf = Math.round((f.confidence||0)*100);
+function renderFindings() {
+  let rows = getFiltered();
+  const { key, dir } = state.sort;
+  rows.sort((a,b) => {
+    const av = a[key] ?? "", bv = b[key] ?? "";
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+  F_COUNT.textContent = `${rows.length} / ${state.findings.length}`;
+  F_EMPTY.classList.toggle("hidden", rows.length > 0);
+  F_TBODY.innerHTML = rows.map(renderRow).join("");
+  // Bind payload buttons
+  F_TBODY.querySelectorAll("[data-payload-idx]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.payloadIdx);
+      openModal(rows[idx].payload || {});
+    });
+  });
+}
+
+function renderRow(f, idx) {
+  const conf = f.confidence || 0;
+  const pct = Math.round(conf * 100);
+  const titleCell = f.url
+    ? `<a href="${escapeHtml(f.url)}" target="_blank" rel="noreferrer" class="text-sky-400 hover:underline">${escapeHtml(f.title || f.url)}</a>`
+    : escapeHtml(f.title || "—");
   const hasPayload = f.payload && Object.keys(f.payload).length;
   return `
-    <div class="p-3 rounded border border-neutral-800 bg-neutral-950/60 hover:border-neutral-700">
-      <div class="flex items-center gap-2 text-xs mb-1 flex-wrap">
-        <span class="tag bg-neutral-800">${escapeHtml(f.collector)}</span>
-        <span class="tag bg-neutral-800">${escapeHtml(f.entity_type)}</span>
-        <span class="tag ${conf>=80?'bg-emerald-900':conf>=50?'bg-neutral-700':'bg-neutral-800 text-neutral-500'}">${conf}%</span>
-      </div>
-      <div class="text-sm">${escapeHtml(f.title)}</div>
-      ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" rel="noreferrer" class="text-xs text-sky-400 break-all hover:underline">${escapeHtml(f.url)}</a>` : ""}
-      ${hasPayload ? `<details class="mt-1 text-xs text-neutral-400"><summary class="cursor-pointer hover:text-neutral-200">payload</summary><pre class="mt-1 text-[11px] bg-neutral-900 p-2 rounded">${escapeHtml(JSON.stringify(f.payload, null, 2))}</pre></details>` : ""}
-    </div>`;
+    <tr>
+      <td><span class="cat-pill cat-default">${escapeHtml(f.collector || "—")}</span></td>
+      <td><span class="cat-pill ${catClass(f.category)}">${escapeHtml(f.category || "—")}</span></td>
+      <td class="text-neutral-400 font-mono text-xs">${escapeHtml(f.entity_type || "—")}</td>
+      <td class="max-w-md"><div class="truncate">${titleCell}</div></td>
+      <td class="w-40">
+        <div class="flex items-center gap-2">
+          <div class="conf-bar flex-1"><div class="conf-fill ${confClass(conf)}" style="width:${pct}%"></div></div>
+          <span class="text-xs font-mono text-neutral-400 w-9 text-right">${pct}%</span>
+        </div>
+      </td>
+      <td>${hasPayload ? `<button data-payload-idx="${idx}" class="text-xs text-neutral-400 hover:text-white underline">ver</button>` : `<span class="text-neutral-600 text-xs">—</span>`}</td>
+    </tr>`;
+}
+// Re-render with index attribute
+function renderRowWithIdx(rows){
+  return rows.map((f,i) => renderRow(f,i)).join("");
+}
+// Override to pass idx
+const _origRenderFindings = renderFindings;
+renderFindings = function() {
+  let rows = getFiltered();
+  const { key, dir } = state.sort;
+  rows.sort((a,b) => {
+    const av = a[key] ?? "", bv = b[key] ?? "";
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+  F_COUNT.textContent = `${rows.length} / ${state.findings.length}`;
+  F_EMPTY.classList.toggle("hidden", rows.length > 0);
+  F_TBODY.innerHTML = renderRowWithIdx(rows);
+  F_TBODY.querySelectorAll("[data-payload-idx]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.payloadIdx);
+      openModal(rows[idx].payload || {});
+    });
+  });
+};
+
+// ============= CSV EXPORT =============
+$("f-csv").addEventListener("click", () => {
+  const rows = getFiltered();
+  const cols = ["collector","category","entity_type","title","url","confidence"];
+  const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => {
+    const v = r[c] ?? ""; const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  }).join(","))).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `who-${CASE_ID}-findings.csv`; a.click();
+});
+
+// ============= MODAL =============
+function openModal(payload) {
+  $("payload-content").textContent = JSON.stringify(payload, null, 2);
+  $("payload-modal").classList.add("open");
+}
+function closeModal() { $("payload-modal").classList.remove("open"); }
+window.closeModal = closeModal;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+// ============= RENDER COLLECTORS =============
+function renderCollectors() {
+  const entries = [...state.collectors.entries()].sort((a,b) => {
+    const order = { running: 0, queued: 1, ok: 2, done: 2, error: 3, timeout: 3, cancelled: 4 };
+    return (order[a[1].status] ?? 9) - (order[b[1].status] ?? 9) || a[0].localeCompare(b[0]);
+  });
+  COL_EMPTY.classList.toggle("hidden", entries.length > 0);
+  COL_LIST.innerHTML = entries.map(([name, s]) => {
+    const badgeCls = s.status === "running" ? "badge-running" : s.status === "ok" || s.status === "done" ? "badge-done" : (s.status === "error" || s.status === "timeout") ? "badge-error" : "badge-queued";
+    const dot = s.status === "running" ? `<span class="pulse-dot"></span>` : "";
+    const errBlock = s.message ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-red-400 hover:text-red-300">ver error</summary><pre class="mt-1 text-[11px] bg-neutral-950 p-2 rounded text-red-300">${escapeHtml(s.message)}</pre></details>` : "";
+    return `
+      <div class="card p-3 flex items-center gap-3 flex-wrap">
+        <div class="font-mono text-sm flex-1 min-w-0 truncate">${escapeHtml(name)}</div>
+        <span class="badge-status ${badgeCls}">${dot}${escapeHtml(s.status || "—")}</span>
+        <div class="text-xs text-neutral-500 w-24 text-right">${s.count || 0} hallazg.</div>
+        <div class="text-xs text-neutral-500 w-20 text-right font-mono">${fmtDuration(s.duration_ms)}</div>
+        <div class="w-full">${errBlock}</div>
+      </div>`;
+  }).join("");
 }
 
-Q.addEventListener("input", renderFindings);
-CATFILTER.addEventListener("change", renderFindings);
-COLLFILTER.addEventListener("change", renderFindings);
-
-function ensureOpt(select, value, keySet) {
-  if (keySet.has(value)) return;
-  keySet.add(value);
-  const o = document.createElement("option"); o.value=value; o.textContent=value;
-  select.appendChild(o);
+// ============= RENDER TIMELINE =============
+function renderTimeline() {
+  const events = state.timeline;
+  TL_EMPTY.classList.toggle("hidden", events.length > 0);
+  const ICONS = { account:"👤", username:"👤", profile:"👤", breach:"🛡", location:"📍", geo:"📍", sport:"🏃", email:"✉", phone:"☎", photo:"📷", default:"●" };
+  TL_LIST.innerHTML = events.map(ev => {
+    const k = (ev.kind || ev.category || "default").toLowerCase();
+    const ic = ICONS[k] || ICONS.default;
+    return `
+      <div class="tl-item kind-${escapeHtml(k)}">
+        <div class="text-xs text-neutral-500 font-mono mb-0.5">${fmtDate(ev.occurred_at || ev.timestamp || ev.date)}</div>
+        <div class="text-sm"><span class="mr-1">${ic}</span>${escapeHtml(ev.title || ev.label || ev.kind || "evento")}</div>
+        ${ev.description ? `<div class="text-xs text-neutral-400 mt-0.5">${escapeHtml(ev.description)}</div>` : ""}
+      </div>`;
+  }).join("");
+  T_TL.textContent = events.length;
 }
 
-// --- Load meta ---
-async function loadCaseMeta() {
-  const r = await fetch(`/api/cases/${CASE_ID}`, { credentials: "include" });
-  if (!r.ok) return;
-  caseMeta = await r.json();
-  TITLE_EL.textContent = caseMeta.title;
-  const inp = caseMeta.input_payload || {};
-  SUB_EL.textContent = Object.entries(inp).filter(([k])=>!["extra_context"].includes(k)).map(([k,v])=>`${k}=${v}`).join("  ·  ");
-  PILL.className = statusCls(caseMeta.status);
-  PILL.textContent = caseMeta.status;
-  if (caseMeta.synthesis_markdown) {
-    SYN.innerHTML = DOMPurify.sanitize(marked.parse(caseMeta.synthesis_markdown));
-    SYN_STATUS.classList.add("hidden");
-  } else if (caseMeta.status === "done") {
-    SYN_STATUS.classList.add("hidden");
-    SYN_EMPTY.classList.remove("hidden");
-  }
-  if (caseMeta.synthesis_model) SYN_STATUS_TEXT.textContent = `Modelo: ${caseMeta.synthesis_model}`;
-}
-
-// --- Stream ---
-function connect() {
+// ============= SSE STREAM =============
+function connectStream() {
   const es = new EventSource(`/api/cases/${CASE_ID}/stream`, { withCredentials: true });
 
-  es.addEventListener("case_started", (e) => {
+  es.addEventListener("case_started", e => {
     const d = JSON.parse(e.data);
-    totalCollectors = (d.data?.collectors || []).length;
-    for (const name of (d.data?.collectors || [])) {
-      if (!collectorState.has(name)) collectorState.set(name, {status:"queued", count:0});
+    const cols = d.data?.collectors || [];
+    state.totalCollectors = cols.length;
+    for (const name of cols) {
+      if (!state.collectors.has(name)) state.collectors.set(name, { status: "queued", count: 0 });
     }
-    renderCollectors();
+    LIVE_PANEL.classList.remove("hidden");
+    setStatusBadge("running");
+    renderCollectors(); renderMetrics();
   });
-  es.addEventListener("collector_start", (e) => {
+
+  es.addEventListener("collector_start", e => {
     const d = JSON.parse(e.data);
     const name = d.data?.collector;
-    collectorState.set(name, {...(collectorState.get(name)||{}), status:"running"});
-    renderCollectors();
+    state.collectors.set(name, { ...(state.collectors.get(name) || {}), status: "running" });
+    LIVE_LAST.textContent = name;
+    renderCollectors(); renderMetrics();
   });
-  es.addEventListener("collector_end", (e) => {
+
+  es.addEventListener("collector_end", e => {
     const d = JSON.parse(e.data);
     const c = d.data?.collector;
-    collectorState.set(c, {status: d.data?.status || "ok", count: d.data?.count || 0, duration_ms: d.data?.duration_ms, message: d.data?.message});
-    renderCollectors();
+    state.collectors.set(c, {
+      status: d.data?.status || "ok",
+      count: d.data?.count || 0,
+      duration_ms: d.data?.duration_ms,
+      message: d.data?.message,
+    });
+    LIVE_LAST.textContent = c + " ✓";
+    renderCollectors(); renderMetrics();
   });
-  es.addEventListener("finding", (e) => {
+
+  es.addEventListener("finding", e => {
     const d = JSON.parse(e.data);
     const f = d.data;
-    findings.push(f);
-    ensureOpt(CATFILTER, f.category, categories);
-    ensureOpt(COLLFILTER, f.collector, collectorsSeen);
-    recomputeStats();
+    state.findings.push(f);
+    rebuildFilters();
     renderFindings();
-    if (["username","social","photo","image","name"].includes(f.category)) {
-      schedulePictureRefresh();
+    renderMetrics();
+    LIVE_LAST.textContent = (f.collector || "") + " · " + (f.category || "");
+  });
+
+  es.addEventListener("inferred_location", e => {
+    try {
+      const d = JSON.parse(e.data);
+      const kind = d.data?.kind || d.kind || "ubicación";
+      toast(`📍 Ubicación inferida: ${kind}`);
+    } catch { toast("📍 Ubicación inferida"); }
+  });
+
+  es.addEventListener("synthesis", async e => {
+    const d = JSON.parse(e.data);
+    if (d.data?.status === "starting") {
+      SYN_STATUS.classList.remove("hidden");
+      SYN_STATUS_TEXT.textContent = `Generando con ${d.data.llm}…`;
+    }
+    if (d.data?.status === "done") {
+      SYN_STATUS.classList.add("hidden");
+      await loadMeta();
+    }
+    if (d.data?.status === "no_findings") {
+      SYN_STATUS.classList.add("hidden");
+      SYN_EMPTY.classList.remove("hidden");
     }
   });
-  es.addEventListener("synthesis", async (e) => {
-    const d = JSON.parse(e.data);
-    if (d.data?.status === "starting") { SYN_STATUS.classList.remove("hidden"); SYN_STATUS_TEXT.textContent = `Generando con ${d.data.llm}…`; }
-    if (d.data?.status === "done") { SYN_STATUS.classList.add("hidden"); await loadCaseMeta(); }
-    if (d.data?.status === "no_findings") { SYN_STATUS.classList.add("hidden"); SYN_EMPTY.classList.remove("hidden"); }
-  });
+
   es.addEventListener("done", () => {
-    PILL.className = statusCls("done"); PILL.textContent = "done";
-    loadCaseMeta(); es.close();
+    setStatusBadge("done");
+    LIVE_PANEL.classList.add("hidden");
+    loadMeta();
+    es.close();
   });
-  es.addEventListener("error", (e) => { try { const d = JSON.parse(e.data); console.warn("err", d); } catch {} });
+
   es.onerror = () => {};
 }
 
-// --- Export ---
-function downloadJSON() {
-  const blob = new Blob([JSON.stringify(findings, null, 2)], {type: "application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `who-${CASE_ID}-findings.json`; a.click();
-}
-function downloadMarkdown() {
-  const md = (caseMeta?.synthesis_markdown) || "(sin síntesis)";
-  const blob = new Blob([md], {type: "text/markdown"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `who-${CASE_ID}-synthesis.md`; a.click();
-}
-function downloadFullReport() {
-  const hdr = `# who — Informe OSINT\n\n**Caso**: ${caseMeta?.title || ""}\n\n**Input**: \`${JSON.stringify(caseMeta?.input_payload || {})}\`\n\n**Fecha**: ${new Date().toISOString()}\n\n---\n\n`;
-  const syn = caseMeta?.synthesis_markdown ? `## Síntesis IA\n\n${caseMeta.synthesis_markdown}\n\n---\n\n` : "";
-  const tbl = `## Hallazgos brutos (${findings.length})\n\n| Colector | Categoría | Título | URL | Confianza |\n|---|---|---|---|---|\n`
-    + findings.map(f=>`| ${f.collector} | ${f.category} | ${(f.title||"").replace(/\|/g,"/")} | ${f.url||""} | ${Math.round((f.confidence||0)*100)}% |`).join("\n");
-  const md = hdr + syn + tbl;
-  const blob = new Blob([md], {type:"text/markdown"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `who-${CASE_ID}-informe.md`; a.click();
-}
-
-// --- Profiles tab ---
-async function loadProfiles(){
-  try {
-    const r = await fetch(`/api/cases/${CASE_ID}/profiles`, {credentials:"include"});
-    if (!r.ok) return;
-    const data = await r.json();
-    const grid = document.getElementById("profile-grid");
-    const empty = document.getElementById("profile-empty");
-    grid.innerHTML = "";
-    document.getElementById("prof-pill").textContent = data.count;
-    if (data.count === 0) { empty.classList.remove("hidden"); return; }
-    empty.classList.add("hidden");
-    for (const p of data.profiles) {
-      const card = document.createElement("div");
-      card.className = "stat-card flex flex-col gap-2";
-      const avatar = p.avatar
-        ? `<img src="${escapeHtml(p.avatar)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" class="w-14 h-14 rounded-full object-cover bg-neutral-800 shrink-0">`
-        : `<div class="w-14 h-14 rounded-full bg-neutral-800 grid place-items-center text-xl text-neutral-500 shrink-0">${escapeHtml((p.handle||"?").charAt(0).toUpperCase())}</div>`;
-      const conf = Math.round((p.confidence||0)*100);
-      const confColor = conf>=80?'bg-emerald-900':conf>=50?'bg-neutral-700':'bg-neutral-800';
-      const extras = Object.entries(p.extras||{}).filter(([,v])=>v!==null&&v!==undefined&&v!=="").slice(0,3)
-        .map(([k,v])=>`<span class="tag bg-neutral-800">${escapeHtml(k)}: ${escapeHtml(String(v).slice(0,24))}</span>`).join(" ");
-      card.innerHTML = `
-        <div class="flex gap-3 items-start">
-          ${avatar}
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 mb-0.5">
-              <span class="tag bg-neutral-800">${escapeHtml(p.platform)}</span>
-              <span class="tag ${confColor}">${conf}%</span>
-            </div>
-            <div class="font-medium truncate">${escapeHtml(p.display_name || p.handle || "(anónimo)")}</div>
-            <div class="text-xs text-neutral-500 truncate">@${escapeHtml(p.handle || "")}</div>
-          </div>
-        </div>
-        ${p.bio ? `<div class="text-xs text-neutral-400 line-clamp-3">${escapeHtml(p.bio)}</div>` : ""}
-        <div class="flex flex-wrap gap-1">${extras}</div>
-        <div class="mt-auto flex items-center gap-2 text-xs text-neutral-500">
-          <span class="font-mono">${escapeHtml(p.collector)}</span>
-          ${p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noreferrer" class="ml-auto text-sky-400 hover:underline">abrir →</a>` : ""}
-        </div>`;
-      grid.appendChild(card);
-    }
-  } catch(e) { console.warn("profiles:", e); }
-}
-
-// --- Photos tab ---
-async function loadPhotos(){
-  try {
-    const r = await fetch(`/api/cases/${CASE_ID}/photos`, {credentials:"include"});
-    if (!r.ok) return;
-    const data = await r.json();
-    const grid = document.getElementById("photo-grid");
-    const empty = document.getElementById("photo-empty");
-    grid.innerHTML = "";
-    document.getElementById("pics-pill").textContent = data.count;
-    if (data.count === 0) { empty.classList.remove("hidden"); return; }
-    empty.classList.add("hidden");
-    for (const p of data.photos) {
-      const div = document.createElement("div");
-      div.className = "relative group";
-      div.innerHTML = `
-        <a href="${escapeHtml(p.source_link || p.url)}" target="_blank" rel="noreferrer" class="block aspect-square overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
-          <img src="${escapeHtml(p.url)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.parentElement.remove()" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110">
-        </a>
-        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-          <div class="font-mono text-[10px] text-neutral-300">${escapeHtml(p.source_collector)}</div>
-          <div class="text-neutral-400 truncate">${escapeHtml(p.source_title || "")}</div>
-        </div>`;
-      grid.appendChild(div);
-    }
-  } catch(e) { console.warn("photos:", e); }
-}
-
-// Trigger loads when tabs are clicked
-for (const btn of document.querySelectorAll(".tab")) {
-  btn.addEventListener("click", () => {
-    if (btn.dataset.tab === "prof") loadProfiles();
-    if (btn.dataset.tab === "pics") loadPhotos();
-  });
-}
-
-// Auto-refresh profiles/photos when we receive relevant findings
-let _profPendingTimer = null;
-function schedulePictureRefresh(){
-  if (_profPendingTimer) return;
-  _profPendingTimer = setTimeout(()=>{ loadProfiles(); loadPhotos(); _profPendingTimer = null; }, 2500);
-}
-
-// Boot
-loadCaseMeta();
-loadProfiles();
-loadPhotos();
-connect();
+// ============= BOOT =============
+loadMeta();
+loadCollectors();
+loadFindings();
+connectStream();
 </script>
 {% endblock %}

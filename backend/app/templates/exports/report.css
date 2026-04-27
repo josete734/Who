@@ -1,0 +1,61 @@
+@page {
+    size: A4;
+    margin: 2cm;
+    @bottom-right { content: counter(page) " / " counter(pages); font-size: 9pt; color: #666; }
+}
+
+body {
+    font-family: "Helvetica", "Arial", sans-serif;
+    font-size: 10pt;
+    color: #222;
+    line-height: 1.4;
+}
+
+.page { page-break-after: always; }
+.page:last-of-type { page-break-after: auto; }
+
+.cover h1 {
+    font-size: 28pt;
+    margin-top: 6cm;
+    color: #1a3d6b;
+}
+.cover .meta { margin-top: 2cm; font-size: 11pt; }
+
+h2 {
+    color: #1a3d6b;
+    border-bottom: 1px solid #1a3d6b;
+    padding-bottom: 4pt;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5em;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 4pt 6pt;
+    text-align: left;
+    vertical-align: top;
+}
+th { background: #eef2f7; }
+
+.timeline { list-style: none; padding-left: 0; }
+.timeline li { padding: 2pt 0; border-bottom: 1px dotted #ddd; }
+.timeline .ts { color: #666; font-family: monospace; }
+
+.finding {
+    margin: 0.5em 0;
+    padding: 6pt;
+    border-left: 3px solid #1a3d6b;
+    background: #f7f9fc;
+    page-break-inside: avoid;
+}
+.finding pre, .summary {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: monospace;
+    font-size: 8.5pt;
+}
+
+.gdpr { background: #fffbe6; padding: 1em; }

@@ -1,0 +1,102 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "schemaVersion": 38,
+  "title": "WHO OSINT",
+  "tags": ["osint", "who"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Collector success rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum by (collector) (rate(collector_runs_total{status=\"success\"}[5m])) / sum by (collector) (rate(collector_runs_total[5m]))",
+          "legendFormat": "{{collector}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}}
+    },
+    {
+      "id": 2,
+      "title": "Collector latency p50 (s)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (collector, le) (rate(collector_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{collector}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 3,
+      "title": "Collector latency p95 (s)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (collector, le) (rate(collector_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{collector}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 4,
+      "title": "Findings per minute",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "sum by (collector) (rate(collector_findings_total[1m])) * 60",
+          "legendFormat": "{{collector}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "LLM cost (USD/hour)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "sum by (provider, model) (rate(llm_cost_usd_total[5m])) * 3600",
+          "legendFormat": "{{provider}}/{{model}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+    },
+    {
+      "id": 6,
+      "title": "Cache hit rate",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 16},
+      "targets": [
+        {
+          "expr": "sum(rate(cache_events_total{kind=\"hit\"}[5m])) / clamp_min(sum(rate(cache_events_total{kind=~\"hit|miss\"}[5m])), 1e-9)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}}
+    },
+    {
+      "id": 7,
+      "title": "Active cases",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 16},
+      "targets": [{"expr": "case_active", "refId": "A"}]
+    }
+  ]
+}

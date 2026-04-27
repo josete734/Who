@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>who — OSINT</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; width: 340px; padding: 12px; margin: 0; }
+    h1 { font-size: 14px; margin: 0 0 8px; }
+    label { display: block; font-size: 12px; margin-top: 8px; color: #333; }
+    input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; font-size: 13px; }
+    .row { display: flex; gap: 6px; margin-top: 10px; }
+    button { padding: 8px 10px; font-size: 13px; cursor: pointer; }
+    button.primary { background: #0b5fff; color: white; border: 0; border-radius: 4px; flex: 1; }
+    button.secondary { background: #eee; border: 1px solid #ccc; border-radius: 4px; }
+    .err { color: #b00020; font-size: 12px; margin-top: 8px; white-space: pre-wrap; }
+    .ok { color: #0a7d2c; font-size: 12px; margin-top: 8px; }
+    .hint { font-size: 11px; color: #666; }
+    .req::after { content: " *"; color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>who — OSINT</h1>
+
+  <label>Username</label>
+  <input id="username" type="text" autocomplete="off" />
+
+  <label>Email</label>
+  <input id="email" type="email" autocomplete="off" />
+
+  <label>Phone</label>
+  <input id="phone" type="tel" autocomplete="off" />
+
+  <label>Domain</label>
+  <input id="domain" type="text" autocomplete="off" />
+
+  <label class="req">Legal basis (GDPR)</label>
+  <select id="legal_basis" required>
+    <option value="">— select —</option>
+    <option value="consent">Consent (Art. 6(1)(a))</option>
+    <option value="contract">Contract (Art. 6(1)(b))</option>
+    <option value="legal_obligation">Legal obligation (Art. 6(1)(c))</option>
+    <option value="vital_interests">Vital interests (Art. 6(1)(d))</option>
+    <option value="public_task">Public task (Art. 6(1)(e))</option>
+    <option value="legitimate_interests">Legitimate interests (Art. 6(1)(f))</option>
+  </select>
+
+  <label>Notes</label>
+  <textarea id="notes" rows="2"></textarea>
+
+  <div class="row">
+    <button id="submit" class="primary" type="button">Create case</button>
+    <button id="options" class="secondary" type="button">Settings</button>
+  </div>
+
+  <div id="msg"></div>
+  <p class="hint">Configure the backend URL and bearer token in Settings.</p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

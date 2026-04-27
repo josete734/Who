@@ -1,0 +1,21 @@
+{
+  "app.title": "who",
+  "nav.home": "Inici",
+  "nav.back": "← Tornar",
+  "nav.back_home": "← Inici",
+  "index.hero.title": "Perfil digital complet.",
+  "index.new_case": "Nova investigació",
+  "index.field.title": "Títol",
+  "index.field.email": "Correu",
+  "index.submit": "Llançar investigació",
+  "index.recent_cases": "Casos recents",
+  "login.title": "Accedir",
+  "login.password": "Contrasenya",
+  "login.submit": "Entrar",
+  "settings.title": "Configuració",
+  "settings.save": "Desar",
+  "case.title": "Cas",
+  "case.tab.synthesis": "Síntesi IA",
+  "case.tab.photos": "Fotos",
+  "common.hello": "Hola {name}"
+}

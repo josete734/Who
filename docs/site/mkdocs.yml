@@ -1,0 +1,56 @@
+site_name: OSINT Tool
+site_description: Documentation for the M3 Estrategia OSINT platform
+docs_dir: .
+site_dir: ../../site
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+
+plugins:
+  - search
+  - mermaid2
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Overview: index.md
+  - Architecture: architecture.md
+  - Collectors: collectors.md
+  - API: api.md
+  - GDPR: gdpr.md
+  - Deployment: deployment.md
+  - Writing Collectors: writing-collectors.md
+  - Runbooks:
+      - Cache Poisoned: runbooks/cache_poisoned.md
+      - Collector 429: runbooks/collector_429.md
+      - Migration Failed: runbooks/migration_failed.md

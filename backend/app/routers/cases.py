@@ -10,9 +10,14 @@ from sqlalchemy import delete, select
 
 from app.auth import check_auth
 from app.collectors import collector_registry
-from app.db import AuditLog, Case, CollectorRun, Finding, session_scope
+from app.db import Case, CollectorRun, Finding, session_scope
 from app.schemas import CaseOut, CollectorRunOut, FindingOut, NewCaseRequest
 from app.tasks import WorkerSettings
+
+try:
+    from app import audit as _audit
+except Exception:  # noqa: BLE001
+    _audit = None  # type: ignore
 
 router = APIRouter(prefix="/api", tags=["cases"])
 
@@ -29,19 +34,36 @@ async def create_case(req: NewCaseRequest, request: Request) -> dict:
     if not non_empty:
         raise HTTPException(400, "input vacío: proporciona al menos un campo")
 
+    legal_basis_value = req.legal_basis or "legitimate_interest"
+    legal_basis_note: str | None = None
+    if legal_basis_value not in {
+        "consent", "legitimate_interest", "legal_obligation",
+        "public_task", "vital_interests", "contract",
+    }:
+        legal_basis_note = legal_basis_value
+        legal_basis_value = "legitimate_interest"
+
     async with session_scope() as s:
         s.add(Case(
             id=case_id,
             title=req.title,
-            legal_basis=req.legal_basis,
+            legal_basis=legal_basis_value,
             input_payload=non_empty,
             status="queued",
         ))
-        s.add(AuditLog(
-            event="case_created",
-            actor_ip=(request.client.host if request.client else None),
-            payload={"case_id": str(case_id), "input": non_empty, "llm": req.llm},
-        ))
+
+    if _audit is not None:
+        try:
+            await _audit.record(
+                action="case.created",
+                case_id=case_id,
+                target=non_empty,
+                metadata={"llm": req.llm, "title": req.title,
+                          "legal_basis_note": legal_basis_note},
+                request=request,
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     pool = await create_pool(WorkerSettings.redis_settings)
     try:

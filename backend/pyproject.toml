@@ -35,6 +35,18 @@ dependencies = [
     "orjson>=3.10",
     "python-slugify>=8.0",
     "dnspython>=2.6",
+    "argon2-cffi>=23.1",
+    "python-dateutil>=2.9",
+    "prometheus-client>=0.20",
+    "structlog>=24.1",
+    "openai>=1.40",
+    "feedparser>=6.0",
+    "imagehash>=4.3",
+    "Pillow>=10.0",
+    "exifread>=3.0",
+    "Jinja2>=3.1",
+    "scikit-learn>=1.3",
+    "aiosmtplib>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +54,7 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",
     "respx>=0.21",
+    "fakeredis>=2.23",
     "ruff>=0.5",
     "mypy>=1.10",
 ]

@@ -10,6 +10,7 @@ from arq.connections import RedisSettings
 from app.config import get_settings
 from app.orchestrator import run_case
 from app.schemas import SearchInput
+from app.tasks_spatial import run_triangulation
 
 
 async def run_case_task(ctx: dict[str, Any], case_id: str, input_json: dict, llm: str) -> None:
@@ -34,7 +35,7 @@ def _redis_settings() -> RedisSettings:
 
 
 class WorkerSettings:
-    functions = [run_case_task]
+    functions = [run_case_task, run_triangulation]
     redis_settings = _redis_settings()
     max_jobs = 5
     job_timeout = 60 * 60

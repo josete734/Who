@@ -23,37 +23,40 @@ class HoleheCollector(Collector):
     description = "Holehe: enumerates ~120 services where the email is registered."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.email
+        emails = input.emails()
+        if not emails:
+            return
         if not shutil.which("holehe"):
             raise RuntimeError("holehe CLI not available in container")
 
-        proc = await asyncio.create_subprocess_exec(
-            "holehe", "--only-used", "--no-color", input.email,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            stdout_b, _ = await asyncio.wait_for(proc.communicate(), timeout=self.timeout_seconds)
-        except asyncio.TimeoutError:
-            proc.kill()
-            raise RuntimeError("holehe timeout") from None
-
-        stdout = stdout_b.decode("utf-8", errors="ignore")
-
-        # holehe output lines look like: "[+] amazon.com"
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line.startswith("[+]"):
-                continue
-            service = line[3:].strip()
-            if not service:
-                continue
-            yield Finding(
-                collector=self.name,
-                category="email",
-                entity_type="ServiceAccount",
-                title=f"Cuenta detectada en {service}",
-                url=f"https://{service}" if "." in service else None,
-                confidence=0.7,
-                payload={"service": service, "email": input.email},
+        for email in emails:
+            proc = await asyncio.create_subprocess_exec(
+                "holehe", "--only-used", "--no-color", email,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+            try:
+                stdout_b, _ = await asyncio.wait_for(proc.communicate(), timeout=self.timeout_seconds)
+            except asyncio.TimeoutError:
+                proc.kill()
+                raise RuntimeError("holehe timeout") from None
+
+            stdout = stdout_b.decode("utf-8", errors="ignore")
+
+            # holehe output lines look like: "[+] amazon.com"
+            for line in stdout.splitlines():
+                line = line.strip()
+                if not line.startswith("[+]"):
+                    continue
+                service = line[3:].strip()
+                if not service:
+                    continue
+                yield Finding(
+                    collector=self.name,
+                    category="email",
+                    entity_type="ServiceAccount",
+                    title=f"Cuenta detectada en {service}",
+                    url=f"https://{service}" if "." in service else None,
+                    confidence=0.7,
+                    payload={"service": service, "email": email},
+                )

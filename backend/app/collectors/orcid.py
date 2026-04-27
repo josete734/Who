@@ -1,6 +1,7 @@
 """ORCID collector: search academic researchers by name or email."""
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 
 import httpx
@@ -9,6 +10,8 @@ from app.collectors.base import Collector, Finding, register
 from app.http_util import client
 from app.schemas import SearchInput
 
+logger = logging.getLogger("osint.collectors.orcid")
+
 
 @register
 class OrcidCollector(Collector):
@@ -16,6 +19,7 @@ class OrcidCollector(Collector):
     category = "academic"
     needs = ("full_name", "birth_name", "aliases", "email")
     timeout_seconds = 30
+    max_retries = 1
     description = "ORCID public API: researchers by name or email."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
@@ -23,11 +27,15 @@ class OrcidCollector(Collector):
         if input.email:
             queries.append(f'email:"{input.email}"')
         for name in input.name_variants():
-            parts = name.split()
+            if not name:
+                continue
+            parts = [p for p in name.split() if p]
+            if not parts:
+                continue
             if len(parts) >= 2:
                 queries.append(f'given-names:"{parts[0]}" AND family-name:"{parts[-1]}"')
             else:
-                queries.append(f'given-names:"{name}"')
+                queries.append(f'given-names:"{parts[0]}"')
         if not queries:
             return
 
@@ -38,17 +46,43 @@ class OrcidCollector(Collector):
                         "https://pub.orcid.org/v3.0/expanded-search/",
                         params={"q": q, "rows": 10},
                     )
-                except httpx.HTTPError:
+                except httpx.HTTPError as e:
+                    logger.info(
+                        "orcid request failed",
+                        extra={"collector": self.name, "query": q, "error": type(e).__name__},
+                    )
                     continue
                 if r.status_code != 200:
                     continue
-                data = r.json() or {}
-                results = data.get("expanded-result") or []
+                try:
+                    data = r.json()
+                except ValueError:
+                    continue
+                # Defensive: ORCID has been observed to return 200 with a body
+                # of ``null``, an empty string, or ``{"expanded-result": null}``.
+                # Any of these would NPE the previous version on the dict-get
+                # chain or on iterating ``hit``.
+                if not isinstance(data, dict):
+                    continue
+                results = data.get("expanded-result")
+                if not isinstance(results, list):
+                    continue
                 for hit in results[:10]:
+                    if not isinstance(hit, dict):
+                        continue
                     orcid = hit.get("orcid-id")
                     if not orcid:
                         continue
-                    display = f"{hit.get('given-names', '')} {hit.get('family-names', '')}".strip()
+                    given = hit.get("given-names") or ""
+                    family = hit.get("family-names") or ""
+                    display = f"{given} {family}".strip()
+                    institution = hit.get("institution-name")
+                    # institution may be a list per ORCID schema — normalise.
+                    if isinstance(institution, list):
+                        institution = ", ".join(str(x) for x in institution if x)
+                    email_val = hit.get("email")
+                    if isinstance(email_val, list):
+                        email_val = email_val[0] if email_val else None
                     yield Finding(
                         collector=self.name,
                         category="academic",
@@ -58,9 +92,9 @@ class OrcidCollector(Collector):
                         confidence=0.85 if input.email else 0.55,
                         payload={
                             "orcid": orcid,
-                            "given_names": hit.get("given-names"),
-                            "family_names": hit.get("family-names"),
-                            "institution": hit.get("institution-name"),
-                            "email": hit.get("email"),
+                            "given_names": given or None,
+                            "family_names": family or None,
+                            "institution": institution,
+                            "email": email_val,
                         },
                     )

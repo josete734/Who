@@ -1,0 +1,99 @@
+"""InfoEmpresa.com collector — Spanish company registry.
+
+Scrapes the public search page at https://www.infoempresa.com to surface
+companies, NIFs and administrators tied to the subject's name. No API key
+required. 429/5xx responses are swallowed and yield nothing.
+"""
+from __future__ import annotations
+
+import logging
+import re
+from collections.abc import AsyncIterator
+from urllib.parse import quote_plus
+
+import httpx
+
+from app.collectors.base import Collector, Finding, register
+from app.netfetch import get_client
+from app.schemas import SearchInput
+
+logger = logging.getLogger(__name__)
+
+SEARCH_URL = "https://www.infoempresa.com/es-es/es/buscar?q={q}"
+_RESULT_RE = re.compile(
+    r'<a[^>]+href="(/es-es/es/empresa/[^"]+)"[^>]*>([^<]+)</a>',
+    re.IGNORECASE,
+)
+_NIF_RE = re.compile(r"\b([A-HJ-NP-SUVW]\d{7}[0-9A-J]|\d{8}[A-HJ-NP-TV-Z])\b")
+_ADMIN_RE = re.compile(
+    r"(?:Administrador(?:es)?|Apoderad[oa]s?)[^:]*:\s*([^<\n]+)",
+    re.IGNORECASE,
+)
+
+
+@register
+class InfoEmpresaCollector(Collector):
+    name = "infoempresa"
+    category = "registry"
+    needs = ("full_name",)
+    timeout_seconds = 20
+    description = "InfoEmpresa.com: empresas, NIFs y administradores (ES)."
+
+    async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
+        terms: list[str] = list(input.name_variants())
+        company = getattr(input, "company_name", None)
+        if company:
+            terms.append(company)
+        if not terms:
+            return
+
+        seen: set[str] = set()
+        async with await get_client("gentle") as c:
+            for term in terms:
+                url = SEARCH_URL.format(q=quote_plus(term))
+                try:
+                    r = await c.get(url, timeout=20.0)
+                except (httpx.HTTPError, OSError):
+                    continue
+                if r.status_code == 429 or r.status_code >= 500:
+                    return
+                if r.status_code != 200:
+                    continue
+                html = r.text or ""
+                for path, label in _RESULT_RE.findall(html)[:20]:
+                    profile_url = f"https://www.infoempresa.com{path}"
+                    if profile_url in seen:
+                        continue
+                    seen.add(profile_url)
+                    nif = ""
+                    admins: list[str] = []
+                    try:
+                        pr = await c.get(profile_url, timeout=20.0)
+                    except (httpx.HTTPError, OSError):
+                        pr = None
+                    if pr is not None and pr.status_code == 200:
+                        m = _NIF_RE.search(pr.text or "")
+                        if m:
+                            nif = m.group(1)
+                        admins = [
+                            a.strip()[:120]
+                            for a in _ADMIN_RE.findall(pr.text or "")[:5]
+                        ]
+                    yield Finding(
+                        collector=self.name,
+                        category="registry",
+                        entity_type="Company",
+                        title=f"InfoEmpresa: {label.strip()}"[:200],
+                        url=profile_url,
+                        confidence=0.7,
+                        payload={
+                            "kind": "company_record",
+                            "evidence": {
+                                "name": label.strip(),
+                                "nif": nif,
+                                "administrators": admins,
+                                "source": "infoempresa",
+                            },
+                            "name_queried": term,
+                        },
+                    )

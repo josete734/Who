@@ -1,4 +1,11 @@
-"""MX / DNS lookup for email domain — disposable check, catch-all hint."""
+"""MX / DNS lookup for email domain.
+
+Emits findings for:
+  - disposable domain warning
+  - MX records + provider hint
+  - reverse PTR for any IP previously seen in the case (best-effort)
+  - SPF, DMARC and DKIM (default selector) TXT records as ``dns_record`` entities
+"""
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -30,7 +37,6 @@ class DnsMxCollector(Collector):
             return
         domain = domain.lower().strip()
 
-        # Disposable check (no network)
         if domain in DISPOSABLE:
             yield Finding(
                 collector=self.name,
@@ -45,6 +51,7 @@ class DnsMxCollector(Collector):
         try:
             import dns.asyncresolver  # type: ignore
             import dns.exception  # type: ignore
+            import dns.reversename  # type: ignore
         except ImportError:
             return
 
@@ -52,6 +59,7 @@ class DnsMxCollector(Collector):
         resolver.timeout = 5.0
         resolver.lifetime = 5.0
 
+        # MX
         mx_hosts: list[str] = []
         try:
             ans = await resolver.resolve(domain, "MX")
@@ -81,24 +89,80 @@ class DnsMxCollector(Collector):
                 payload={"domain": domain, "mx_hosts": []},
             )
 
-        # TXT / SPF / DMARC
-        for kind, tgt in [("SPF", domain), ("DMARC", f"_dmarc.{domain}")]:
+        # SPF, DMARC, DKIM (default selector) — emitted as dns_record entities.
+        targets = [
+            ("spf", domain, "v=spf1"),
+            ("dmarc", f"_dmarc.{domain}", "v=DMARC1"),
+            ("dkim", f"default._domainkey.{domain}", None),
+        ]
+        for kind, tgt, prefix in targets:
             try:
                 ans = await resolver.resolve(tgt, "TXT")
-                for r in ans:
-                    val = b"".join(r.strings).decode("utf-8", errors="ignore")
-                    if (kind == "SPF" and val.startswith("v=spf1")) or (kind == "DMARC" and val.startswith("v=DMARC1")):
-                        yield Finding(
-                            collector=self.name,
-                            category="email",
-                            entity_type=f"Email{kind}",
-                            title=f"{kind} de {domain}",
-                            url=None,
-                            confidence=0.85,
-                            payload={"record": val},
-                        )
             except Exception:
-                pass
+                continue
+            for r in ans:
+                try:
+                    val = b"".join(r.strings).decode("utf-8", errors="ignore")
+                except Exception:
+                    continue
+                if prefix and not val.startswith(prefix):
+                    continue
+                yield Finding(
+                    collector=self.name,
+                    category="email",
+                    entity_type="dns_record",
+                    title=f"{kind.upper()} de {domain}",
+                    url=None,
+                    confidence=0.85,
+                    payload={"kind": kind, "value": val, "domain": domain},
+                )
+
+        # Reverse PTR for any IPs already collected on this case.
+        ips = _ips_from_input(input)
+        for ip in ips:
+            try:
+                rev = dns.reversename.from_address(ip)
+                ans = await resolver.resolve(rev, "PTR")
+                ptrs = [str(r).rstrip(".") for r in ans]
+            except Exception:
+                continue
+            if not ptrs:
+                continue
+            yield Finding(
+                collector=self.name,
+                category="email",
+                entity_type="dns_record",
+                title=f"PTR {ip} -> {ptrs[0]}",
+                url=None,
+                confidence=0.8,
+                payload={"kind": "ptr", "value": ptrs, "ip": ip, "domain": domain},
+            )
+
+
+def _ips_from_input(input: SearchInput) -> list[str]:
+    """Best-effort extraction of IPs the orchestrator may attach to the input.
+
+    The orchestrator may attach previously collected IPs via ``extra_context``
+    (free-form). We also probe well-known optional attribute ``case_findings``
+    if injected. Skipped silently when no IPs are available.
+    """
+    ips: list[str] = []
+    raw = getattr(input, "case_findings", None) or []
+    for f in raw:
+        ip = (f.get("payload") or {}).get("ip") if isinstance(f, dict) else None
+        if isinstance(ip, str):
+            ips.append(ip)
+    # Also scan extra_context for IPv4 strings.
+    if input.extra_context:
+        import re
+        ips.extend(re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", input.extra_context))
+    # dedup, preserve order
+    seen: set[str] = set()
+    out: list[str] = []
+    for ip in ips:
+        if ip not in seen:
+            seen.add(ip); out.append(ip)
+    return out
 
 
 def _detect_provider(mx_hosts: list[str]) -> str | None:

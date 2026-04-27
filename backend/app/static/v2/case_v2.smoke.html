@@ -1,0 +1,187 @@
+<!doctype html>
+<!--
+  case_v2.smoke.html — static markup snapshot of the v2 single-page case UI.
+  Purely for visual review by humans. No backend required: data is hard-coded,
+  vendor scripts are not loaded. Open directly in a browser.
+-->
+<html lang="es" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <title>Caso v2 · SMOKE</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./app.css" />
+  <style>
+    /* placeholder swatches so panels render without JS */
+    .stub-graph { background: repeating-linear-gradient(45deg, #111 0 12px, #0a0a0a 12px 24px); }
+    .stub-map   { background: radial-gradient(circle at 30% 40%, #0a3b2e 0, #0a0a0a 60%); }
+    .stub-tl    { background: linear-gradient(180deg, #0a0a0a, #111); }
+  </style>
+</head>
+<body class="bg-neutral-950 text-neutral-100 min-h-screen antialiased">
+
+  <header class="px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-semibold">Caso <span class="font-mono text-emerald-400">demo-001</span></h1>
+      <p class="text-xs text-neutral-500 mt-0.5">Vista visual · v2 (SMOKE)</p>
+    </div>
+    <a href="#" class="text-xs text-neutral-400 hover:text-white">← Vista clásica</a>
+  </header>
+
+  <nav class="px-6 border-b border-neutral-800 flex gap-2 text-sm flex-wrap">
+    <button class="v2-tab v2-tab-active">Grafo</button>
+    <button class="v2-tab">Timeline</button>
+    <button class="v2-tab">Fotos</button>
+    <button class="v2-tab">Geo</button>
+    <button class="v2-tab">Hallazgos</button>
+    <button class="v2-tab">IA</button>
+  </nav>
+
+  <main class="p-6 space-y-10">
+
+    <!-- GRAPH (active) -->
+    <section>
+      <h2 class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Panel: Grafo</h2>
+      <div class="flex items-center gap-3 mb-3 flex-wrap text-xs">
+        <label class="text-neutral-400">Tipo
+          <select class="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 ml-1"><option>todos</option></select>
+        </label>
+        <label class="text-neutral-400">min score
+          <input type="range" min="0" max="100" value="20" class="align-middle ml-1" />
+          <span class="font-mono text-emerald-400">20</span>
+        </label>
+        <button class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">Recargar</button>
+        <span class="text-neutral-500">42 nodos · 78 aristas</span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div class="lg:col-span-3 stub-graph rounded-lg border border-neutral-800 flex items-center justify-center" style="height:60vh;">
+          <span class="text-neutral-600 text-xs">[ cytoscape canvas ]</span>
+        </div>
+        <aside class="bg-neutral-900 rounded-lg border border-neutral-800 p-4 text-sm" style="max-height:60vh; overflow:auto;">
+          <div class="mb-3">
+            <div class="text-xs uppercase text-neutral-500">Nodo</div>
+            <div class="font-mono text-sm break-all">jose@example.com</div>
+            <div class="text-xs text-neutral-500 mt-1">tipo: <span class="text-emerald-400">email</span></div>
+          </div>
+          <div class="mb-3">
+            <div class="text-xs uppercase text-neutral-500 mb-1">Atributos</div>
+            <div class="attr-row"><div class="k">verified</div><div class="v">true</div></div>
+            <div class="attr-row"><div class="k">first_seen</div><div class="v">2024-08-01</div></div>
+            <div class="attr-row"><div class="k">breaches</div><div class="v">3</div></div>
+          </div>
+          <div>
+            <div class="text-xs uppercase text-neutral-500 mb-1">Fuentes (2)</div>
+            <div class="text-xs text-neutral-300 truncate">• HIBP</div>
+            <div class="text-xs text-neutral-300 truncate">• dehashed</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- TIMELINE -->
+    <section>
+      <h2 class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Panel: Timeline</h2>
+      <div class="stub-tl rounded-lg border border-neutral-800 flex items-center justify-center" style="height:30vh;">
+        <span class="text-neutral-600 text-xs">[ vis-timeline · 17 eventos ]</span>
+      </div>
+    </section>
+
+    <!-- PHOTOS -->
+    <section>
+      <h2 class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Panel: Fotos</h2>
+      <p class="text-xs text-neutral-500 mb-3">3 clusters</p>
+      <div class="space-y-6">
+        <div>
+          <h3 class="text-sm font-medium text-neutral-300 mb-2">Cluster 0
+            <span class="text-xs text-neutral-500 ml-2">8 fotos</span>
+            <span class="text-xs text-emerald-400 ml-2">probable: sujeto</span>
+          </h3>
+          <div class="photo-cluster-grid">
+            <figure><div style="aspect-ratio:3/4;background:#222"></div></figure>
+            <figure><div style="aspect-ratio:1/1;background:#1f2937"></div></figure>
+            <figure><div style="aspect-ratio:4/3;background:#374151"></div></figure>
+            <figure><div style="aspect-ratio:2/3;background:#1f2a37"></div></figure>
+            <figure><div style="aspect-ratio:1/1;background:#262626"></div></figure>
+            <figure><div style="aspect-ratio:5/4;background:#1a1a1a"></div></figure>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-medium text-neutral-300 mb-2">Cluster 1
+            <span class="text-xs text-neutral-500 ml-2">3 fotos</span>
+          </h3>
+          <div class="photo-cluster-grid">
+            <figure><div style="aspect-ratio:1/1;background:#2c2c2c"></div></figure>
+            <figure><div style="aspect-ratio:3/4;background:#1f1f1f"></div></figure>
+            <figure><div style="aspect-ratio:4/3;background:#171717"></div></figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GEO -->
+    <section>
+      <h2 class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Panel: Geo</h2>
+      <div class="stub-map rounded-lg border border-neutral-800 flex items-center justify-center" style="height:40vh;">
+        <span class="text-neutral-600 text-xs">[ Leaflet + H3 heatmap · 124 celdas ]</span>
+      </div>
+    </section>
+
+    <!-- FINDINGS -->
+    <section>
+      <h2 class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Panel: Hallazgos</h2>
+      <div class="overflow-x-auto rounded-lg border border-neutral-800">
+        <table class="min-w-full text-sm">
+          <thead class="bg-neutral-900 text-neutral-400 text-xs uppercase">
+            <tr>
+              <th class="px-3 py-2 text-left">Tipo</th>
+              <th class="px-3 py-2 text-left">Valor</th>
+              <th class="px-3 py-2 text-left">Fuente</th>
+              <th class="px-3 py-2 text-right">Score</th>
+              <th class="px-3 py-2 text-left">Visto</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-800">
+            <tr><td class="px-3 py-2"><span class="text-xs px-1.5 py-0.5 rounded bg-neutral-800">email</span></td><td class="px-3 py-2 font-mono text-xs">jose@example.com</td><td class="px-3 py-2 text-xs text-neutral-400">hibp</td><td class="px-3 py-2 text-right font-mono text-xs">92</td><td class="px-3 py-2 text-xs text-neutral-500">2026-04-12</td></tr>
+            <tr><td class="px-3 py-2"><span class="text-xs px-1.5 py-0.5 rounded bg-neutral-800">phone</span></td><td class="px-3 py-2 font-mono text-xs">+34 600 123 456</td><td class="px-3 py-2 text-xs text-neutral-400">truecaller</td><td class="px-3 py-2 text-right font-mono text-xs">78</td><td class="px-3 py-2 text-xs text-neutral-500">2026-04-15</td></tr>
+            <tr><td class="px-3 py-2"><span class="text-xs px-1.5 py-0.5 rounded bg-neutral-800">domain</span></td><td class="px-3 py-2 font-mono text-xs">m3estrategia.com</td><td class="px-3 py-2 text-xs text-neutral-400">whois</td><td class="px-3 py-2 text-right font-mono text-xs">100</td><td class="px-3 py-2 text-xs text-neutral-500">2026-04-20</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- AI -->
+    <section>
+      <h2 class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Panel: IA</h2>
+      <div class="flex items-center gap-2 mb-3">
+        <button class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-sm font-medium">Ejecutar investigador IA</button>
+        <button class="px-3 py-1.5 rounded bg-neutral-800 text-sm" disabled>Detener</button>
+        <span class="text-xs text-neutral-500">ejemplo</span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-neutral-900 rounded-lg border border-neutral-800 p-3 text-xs font-mono" style="height:40vh; overflow:auto;">
+          <div class="ai-log-line event-start">▶ iniciado</div>
+          <div class="ai-log-line event-tool">→ tool: search_web {"q":"jose m3estrategia"}</div>
+          <div class="ai-log-line event-thought">· cruzando dominios y emails…</div>
+          <div class="ai-log-line event-tool">→ tool: pivot_email {"email":"jose@m3estrategia.com"}</div>
+          <div class="ai-log-line event-final">✔ informe final recibido</div>
+        </div>
+        <div class="bg-neutral-900 rounded-lg border border-neutral-800 p-4 text-sm" style="height:40vh; overflow:auto;">
+          <h2 class="text-base font-semibold mb-2">Informe del investigador</h2>
+          <p class="text-sm text-neutral-300 mb-4">Sujeto vinculado a m3estrategia.com con presencia social activa y 3 brechas confirmadas.</p>
+          <h3 class="text-xs uppercase text-neutral-500 mb-1">Hallazgos clave</h3>
+          <ul class="list-disc pl-5 mb-4 text-sm space-y-1">
+            <li>Email aparece en 3 brechas (2022–2024).</li>
+            <li>Cluster facial con 8 fotos coherentes con LinkedIn.</li>
+            <li>Geolocalización predominante: Madrid.</li>
+          </ul>
+          <h3 class="text-xs uppercase text-neutral-500 mb-1">Recomendaciones</h3>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>Pivote sobre dominio corporativo.</li>
+            <li>Verificar identidades alternas en GitHub.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>

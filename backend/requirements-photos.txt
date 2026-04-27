@@ -1,0 +1,9 @@
+# Wave 2 / B3 — photo aggregator + face clustering deps.
+# Installed only on workers that run the photos subsystem.
+imagehash>=4.3
+Pillow>=10.0
+scikit-learn>=1.3
+httpx>=0.25
+# face_recognition is OPTIONAL: it pulls dlib (large native build).
+# When absent, clusterer.py degrades gracefully to pHash-only clustering.
+face_recognition>=1.3 ; platform_system != "Windows"

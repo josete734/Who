@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>OSINT Report - {{ case.id }}</title>
+    <link rel="stylesheet" href="report.css">
+</head>
+<body>
+    <section class="cover page">
+        <h1>Informe OSINT</h1>
+        <div class="meta">
+            <p><strong>Case ID:</strong> {{ case.id }}</p>
+            <p><strong>Título:</strong> {{ case.title }}</p>
+            <p><strong>Base legal:</strong> {{ case.legal_basis or "—" }}</p>
+            <p><strong>Creado:</strong> {{ case.created_at }}</p>
+            <p><strong>Finalizado:</strong> {{ case.finished_at or "—" }}</p>
+            <p><strong>Generado:</strong> {{ generated_at }}</p>
+        </div>
+    </section>
+
+    <section class="page">
+        <h2>Resumen ejecutivo</h2>
+        {% if case.synthesis_markdown %}
+            <pre class="summary">{{ case.synthesis_markdown }}</pre>
+        {% else %}
+            <p>Sin síntesis disponible.</p>
+        {% endif %}
+    </section>
+
+    <section class="page">
+        <h2>Entidades</h2>
+        <table>
+            <thead><tr><th>Tipo</th><th>Categoría</th><th>Título</th><th>Confianza</th></tr></thead>
+            <tbody>
+            {% for f in findings %}
+                <tr>
+                    <td>{{ f.entity_type }}</td>
+                    <td>{{ f.category }}</td>
+                    <td>{{ f.title }}</td>
+                    <td>{{ "%.2f"|format(f.confidence) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="page">
+        <h2>Cronología</h2>
+        <ul class="timeline">
+        {% for f in findings %}
+            <li><span class="ts">{{ f.created_at }}</span> — <strong>{{ f.collector }}</strong>: {{ f.title }}</li>
+        {% endfor %}
+        </ul>
+    </section>
+
+    <section class="page">
+        <h2>Apéndice de hallazgos</h2>
+        {% for f in findings %}
+            <div class="finding">
+                <h3>{{ f.title }}</h3>
+                <p><em>{{ f.collector }} / {{ f.entity_type }}</em></p>
+                {% if f.url %}<p><a href="{{ f.url }}">{{ f.url }}</a></p>{% endif %}
+                <pre>{{ f.payload_json }}</pre>
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="page gdpr">
+        <h2>Aviso GDPR</h2>
+        <p>Este informe contiene datos personales tratados conforme al RGPD (UE 2016/679).
+        Base legal del tratamiento: <strong>{{ case.legal_basis or "no especificada" }}</strong>.</p>
+        <p>Los datos provienen de fuentes abiertas (OSINT). El destinatario es responsable de
+        garantizar minimización, limitación de finalidad y plazos de conservación adecuados.
+        Los interesados pueden ejercer sus derechos de acceso, rectificación, supresión,
+        oposición, limitación y portabilidad.</p>
+        <p>Generado el {{ generated_at }}.</p>
+    </section>
+</body>
+</html>

@@ -1,0 +1,5 @@
+prometheus-client>=0.20
+structlog>=24.1
+# Entity resolution (Wave 1 / A6)
+phonenumbers>=8.13
+rapidfuzz>=3.9

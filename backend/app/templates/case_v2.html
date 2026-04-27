@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Caso v2 · {{ case_id }}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <link rel="stylesheet" href="https://unpkg.com/vis-timeline@7.7.3/styles/vis-timeline-graph2d.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <link rel="stylesheet" href="/static/v2/app.css" />
+</head>
+<body class="bg-[#0a0a0a] text-neutral-100 min-h-screen antialiased">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="/" class="crumb" title="Lista de casos">← Casos</a>
+      <span class="crumb-sep">/</span>
+      <h1 class="topbar-title">
+        <span class="text-neutral-400">Caso</span>
+        <span class="font-mono text-emerald-400" id="case-id-label">{{ case_id }}</span>
+      </h1>
+      <span id="case-status-pill" class="pill pill-muted">cargando…</span>
+    </div>
+    <div class="topbar-right">
+      <button id="action-refresh" class="action-btn" title="Recargar todo">⟳ Recargar</button>
+      <a href="/case/{{ case_id }}" class="action-btn action-btn-ghost">Vista clásica</a>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sb-block">
+        <div class="sb-label">Inputs originales</div>
+        <div id="sb-inputs" class="sb-content text-xs text-neutral-300">—</div>
+      </div>
+      <div class="sb-block">
+        <div class="sb-label">Resumen</div>
+        <div id="sb-summary" class="sb-stats">
+          <div><span class="sb-stat-num" id="sb-n-findings">·</span><span class="sb-stat-lbl">hallazgos</span></div>
+          <div><span class="sb-stat-num" id="sb-n-photos">·</span><span class="sb-stat-lbl">fotos</span></div>
+          <div><span class="sb-stat-num" id="sb-n-events">·</span><span class="sb-stat-lbl">eventos</span></div>
+          <div><span class="sb-stat-num" id="sb-n-locs">·</span><span class="sb-stat-lbl">lugares</span></div>
+        </div>
+      </div>
+      <div class="sb-block">
+        <div class="sb-label">Estado</div>
+        <div id="sb-status" class="sb-content text-xs text-neutral-400">—</div>
+      </div>
+      <div class="sb-block">
+        <div class="sb-label">Duraciones</div>
+        <div id="sb-durations" class="sb-content text-xs text-neutral-400">—</div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+      <nav class="tabs" id="v2-tabs" role="tablist">
+        <button class="v2-tab v2-tab-active" data-tab="graph" role="tab" aria-selected="true">
+          <span class="tab-icon">⬢</span> Grafo
+        </button>
+        <button class="v2-tab" data-tab="timeline" role="tab">
+          <span class="tab-icon">▤</span> Timeline
+        </button>
+        <button class="v2-tab" data-tab="photos" role="tab">
+          <span class="tab-icon">▦</span> Fotos
+        </button>
+        <button class="v2-tab" data-tab="geo" role="tab">
+          <span class="tab-icon">◉</span> Geo
+        </button>
+        <button class="v2-tab" data-tab="findings" role="tab">
+          <span class="tab-icon">☰</span> Hallazgos
+        </button>
+        <button class="v2-tab" data-tab="ai" role="tab">
+          <span class="tab-icon">✦</span> IA
+        </button>
+      </nav>
+
+      <div class="panels-wrap">
+
+        <!-- GRAPH -->
+        <section data-panel="graph" class="v2-panel">
+          <div class="toolbar">
+            <div class="toolbar-group" id="graph-type-chips">
+              <span class="toolbar-label">Tipos:</span>
+              <!-- chips injected by JS -->
+            </div>
+            <div class="toolbar-group">
+              <label class="toolbar-label">min score
+                <input id="graph-score-filter" type="range" min="0" max="100" value="0" />
+                <span id="graph-score-val" class="font-mono text-emerald-400">0</span>
+              </label>
+            </div>
+            <div class="toolbar-group ml-auto">
+              <button id="graph-fit" class="tb-btn" title="Ajustar al lienzo">⤧ Fit</button>
+              <button id="graph-relayout" class="tb-btn" title="Relanzar layout">↻ Layout</button>
+              <button id="graph-export" class="tb-btn" title="Exportar PNG">⤓ PNG</button>
+              <button id="graph-reload" class="tb-btn">⟳</button>
+              <span id="graph-status" class="text-xs text-neutral-500"></span>
+            </div>
+          </div>
+          <div class="graph-area">
+            <div id="cy" class="cy-canvas"></div>
+            <aside id="graph-side" class="side-panel">
+              <div class="side-empty">
+                <div class="side-empty-icon">⬢</div>
+                <p>Selecciona un nodo para ver atributos, fuentes y vecinos.</p>
+              </div>
+            </aside>
+          </div>
+          <div class="graph-legend" id="graph-legend"></div>
+        </section>
+
+        <!-- TIMELINE -->
+        <section data-panel="timeline" class="v2-panel hidden">
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <span class="toolbar-label">Buscar:</span>
+              <input id="tl-search" placeholder="filtrar…" class="tb-input" />
+            </div>
+            <div class="toolbar-group ml-auto">
+              <button id="tl-fit" class="tb-btn">⤧ Fit</button>
+              <span id="timeline-status" class="text-xs text-neutral-500"></span>
+            </div>
+          </div>
+          <div id="timeline" class="card timeline-card"></div>
+        </section>
+
+        <!-- PHOTOS -->
+        <section data-panel="photos" class="v2-panel hidden">
+          <div class="toolbar">
+            <span id="photos-status" class="text-xs text-neutral-500"></span>
+            <div class="toolbar-group ml-auto">
+              <label class="toolbar-label flex items-center gap-1">
+                <input type="checkbox" id="photos-only-gps" /> solo con GPS
+              </label>
+              <label class="toolbar-label flex items-center gap-1">
+                <input type="checkbox" id="photos-only-ai" /> solo con IA
+              </label>
+            </div>
+          </div>
+          <div id="photos-clusters" class="space-y-8"></div>
+        </section>
+
+        <!-- GEO -->
+        <section data-panel="geo" class="v2-panel hidden">
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <span class="toolbar-label">Capas:</span>
+              <label class="toolbar-label flex items-center gap-1"><input type="checkbox" id="geo-layer-inferred" checked /> Lugares inferidos</label>
+              <label class="toolbar-label flex items-center gap-1"><input type="checkbox" id="geo-layer-signals" checked /> Señales</label>
+              <label class="toolbar-label flex items-center gap-1"><input type="checkbox" id="geo-layer-heat" checked /> Heatmap H3</label>
+            </div>
+            <div class="toolbar-group ml-auto">
+              <button id="geo-fit" class="tb-btn">⤧ Fit</button>
+              <span id="geo-status" class="text-xs text-neutral-500"></span>
+            </div>
+          </div>
+          <div id="geo-map" class="card geo-card"></div>
+        </section>
+
+        <!-- FINDINGS -->
+        <section data-panel="findings" class="v2-panel hidden">
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <input id="findings-search" placeholder="buscar texto…" class="tb-input" style="min-width:240px;" />
+              <select id="findings-type-filter" class="tb-select">
+                <option value="">todos los tipos</option>
+              </select>
+            </div>
+            <div class="toolbar-group ml-auto">
+              <span id="findings-status" class="text-xs text-neutral-500"></span>
+            </div>
+          </div>
+          <div class="card findings-card">
+            <div class="findings-header">
+              <div class="fh-cell" data-sort="type">Tipo</div>
+              <div class="fh-cell flex-1" data-sort="value">Valor</div>
+              <div class="fh-cell" data-sort="source">Fuente</div>
+              <div class="fh-cell text-right" data-sort="score">Score</div>
+              <div class="fh-cell" data-sort="seen">Visto</div>
+            </div>
+            <div id="findings-viewport" class="findings-viewport">
+              <div id="findings-spacer" class="findings-spacer"></div>
+              <div id="findings-rows" class="findings-rows"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- AI -->
+        <section data-panel="ai" class="v2-panel hidden">
+          <div class="toolbar">
+            <button id="ai-run" class="action-btn action-btn-primary">✦ Lanzar AI Investigator</button>
+            <button id="ai-stop" class="tb-btn" disabled>■ Detener</button>
+            <span id="ai-status" class="text-xs text-neutral-500"></span>
+          </div>
+          <div class="ai-grid">
+            <div id="ai-log" class="card ai-chat">
+              <div class="ai-chat-empty">
+                <div class="text-3xl mb-2">✦</div>
+                <p class="text-neutral-400 text-sm">El razonamiento del agente, llamadas a herramientas y resultados aparecerán aquí.</p>
+              </div>
+            </div>
+            <div id="ai-report" class="card ai-report">
+              <div class="ai-report-empty text-neutral-500 text-xs">El informe final aparecerá aquí.</div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- LIGHTBOX -->
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+    <button class="lb-close" id="lb-close" title="Cerrar">×</button>
+    <div class="lb-inner">
+      <div class="lb-img-wrap">
+        <img id="lb-img" alt="" />
+        <div class="lb-badges" id="lb-badges"></div>
+      </div>
+      <div class="lb-side">
+        <h3 id="lb-title" class="text-base font-semibold mb-2">Foto</h3>
+        <div class="lb-section">
+          <div class="lb-section-title">EXIF</div>
+          <div id="lb-exif" class="lb-table"></div>
+        </div>
+        <div class="lb-section">
+          <div class="lb-section-title">Análisis IA</div>
+          <div id="lb-ai" class="lb-ai"></div>
+        </div>
+        <div class="lb-actions">
+          <button id="lb-map-btn" class="action-btn">◉ Ver en mapa</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>window.__CASE_ID__ = {{ case_id|tojson }};</script>
+
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/layout-base@1.0.2/layout-base.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/cose-base@1.0.3/cose-base.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/vis-timeline@7.7.3/standalone/umd/vis-timeline-graph2d.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script src="/static/v2/app.js"></script>
+</body>
+</html>
