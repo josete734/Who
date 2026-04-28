@@ -13,7 +13,112 @@ import uuid
 from collections import defaultdict
 from typing import Any
 
-from sqlalchemy import select, update
+import logging
+
+from sqlalchemy import select, text, update
+
+log = logging.getLogger(__name__)
+
+
+_DEPTH_RX = __import__("re").compile(r"pivot_depth\s*[=:]\s*(\d+)")
+
+
+def _depth_from_extra_context(extra_context: str | None) -> int:
+    """Read ``pivot_depth=<n>`` out of extra_context, default 0.
+
+    The pivot dispatcher tags re-enqueued cases with this value so the
+    orchestrator can reach the configured depth cap rather than letting the
+    cascade run indefinitely.
+    """
+    if not extra_context:
+        return 0
+    m = _DEPTH_RX.search(extra_context)
+    if not m:
+        return 0
+    try:
+        d = int(m.group(1))
+        return max(0, min(d, 10))  # clamp defensively
+    except ValueError:
+        return 0
+
+
+def _consensus_boost(base: float, n_sources: int, *, ceiling: float = 0.98) -> float:
+    """Wave 9 — confidence consensus boost.
+
+    When the same fingerprint is independently emitted by multiple
+    collectors (the ``sources`` JSON array on the surviving row), bump the
+    confidence to reflect the corroboration:
+
+        boosted = min(ceiling, base + 0.10 * (n - 1))
+
+    Single-collector findings keep their original score. The function is a
+    pure helper so unit tests can validate the maths without a database.
+    """
+    if n_sources <= 1:
+        return base
+    boosted = base + 0.10 * (n_sources - 1)
+    return min(ceiling, boosted)
+
+
+async def _dedup_findings_for_case(case_id: uuid.UUID) -> None:
+    """Cross-collector dedup post-processor.
+
+    For each ``(case_id, fingerprint)`` group with more than one row, keep the
+    row with the highest confidence (ties broken by newest ``created_at``),
+    set its ``sources`` JSON array to the list of every collector that
+    produced this fingerprint (ordered by descending confidence), and delete
+    the redundant rows.
+
+    Wave 9 — also bumps the surviving row's ``confidence`` for username /
+    account categories where multi-source agreement is a strong signal of
+    the real handle. Capped at 0.98.
+    """
+    async with session_scope() as s:
+        await s.execute(text(
+            """
+            WITH grouped AS (
+                SELECT case_id,
+                       fingerprint,
+                       array_agg(collector ORDER BY confidence DESC, created_at DESC) AS collectors,
+                       (array_agg(id ORDER BY confidence DESC, created_at DESC))[1] AS keep_id
+                FROM findings
+                WHERE case_id = :cid
+                GROUP BY case_id, fingerprint
+                HAVING COUNT(*) > 1
+            ),
+            updated AS (
+                UPDATE findings f
+                   SET sources = to_jsonb(g.collectors)
+                  FROM grouped g
+                 WHERE f.id = g.keep_id
+                RETURNING g.case_id, g.fingerprint, g.keep_id
+            )
+            DELETE FROM findings f
+             USING updated u
+             WHERE f.case_id = u.case_id
+               AND f.fingerprint = u.fingerprint
+               AND f.id <> u.keep_id
+            """
+        ), {"cid": str(case_id)})
+
+        # Wave 9 — consensus confidence boost. Apply only on
+        # username / social / account categories where a fingerprint
+        # collision across collectors is the strongest signal we have.
+        # Other categories (e.g. registry hits with ambiguous nombre)
+        # already carry their own attribute-level confidence.
+        await s.execute(text(
+            """
+            UPDATE findings
+               SET confidence = LEAST(
+                       0.98,
+                       confidence + 0.10 * (jsonb_array_length(sources) - 1)
+                   )
+             WHERE case_id = :cid
+               AND category IN ('username', 'social', 'account')
+               AND sources IS NOT NULL
+               AND jsonb_array_length(sources) >= 2
+            """
+        ), {"cid": str(case_id)})
 
 from app.collectors import collector_registry  # noqa: F401 — also triggers import of every collector
 from app.collectors.base import Collector, Finding
@@ -193,6 +298,31 @@ async def _run_one(case_id: uuid.UUID, collector: Collector, input: SearchInput)
                     "case_id": str(case_id),
                     "data": payload,
                 })
+
+                # Wave 3 — pivot dispatch: extract pivots from this finding
+                # and (subject to depth/budget caps) enqueue collectors that
+                # target them. Fail-soft: any error here must not abort the
+                # primary collector run.
+                try:
+                    from app.pivot.extractor import extract as _pivot_extract
+                    from app.pivot.dispatcher import maybe_dispatch as _pivot_dispatch
+
+                    f.payload_for_dispatch = f.payload  # type: ignore[attr-defined]
+                    pivots = _pivot_extract(f)
+                    if pivots:
+                        # Depth comes from extra_context (set by the
+                        # dispatcher when re-enqueuing) or defaults to 0
+                        # for top-level cases. The dispatcher itself bumps
+                        # to depth+1 internally and bails when > max_depth.
+                        depth = _depth_from_extra_context(input.extra_context)
+                        await _pivot_dispatch(case_id, pivots, depth=depth)
+                except Exception as _pivot_exc:  # noqa: BLE001
+                    log.debug(
+                        "pivot.dispatch_failed case=%s collector=%s err=%s",
+                        case_id,
+                        collector.name,
+                        _pivot_exc,
+                    )
     except asyncio.TimeoutError:
         status = "timeout"
         message = f"Timeout after {collector.timeout_seconds}s"
@@ -290,6 +420,15 @@ async def _run_case_inner(case_id: uuid.UUID, input: SearchInput, llm: str = "cl
         await publish(case_id, {"type": "error", "case_id": str(case_id), "data": {"error": str(e)[:1000]}})
         return
 
+    # Cross-collector dedup — fail-soft. Collapses rows sharing
+    # (case_id, fingerprint) into one, preserving the contributing collector
+    # names in `sources` ordered by confidence.
+    async with async_phase("dedup"):
+        try:
+            await _dedup_findings_for_case(case_id)
+        except Exception as e:  # noqa: BLE001
+            log.warning("dedup post-processor failed: %s", e)
+
     # Spatial triangulation — fail-soft. If the case has accumulated enough
     # findings carrying GPS polylines (e.g. Strava activities), enqueue a
     # background post-processing job that clusters them into likely
@@ -333,6 +472,23 @@ async def _run_case_inner(case_id: uuid.UUID, input: SearchInput, llm: str = "cl
         except Exception as e:  # noqa: BLE001
             await publish(case_id, {"type": "warning", "case_id": str(case_id),
                                      "data": {"stage": "entity_resolution", "error": str(e)[:500]}})
+
+    # Wave 3 — timeline build: extract dated events from every persisted
+    # finding, dedupe to a single canonical event per (kind, ts) and persist
+    # into ``timeline_events``. Fail-soft so synthesis still runs even if
+    # the timeline subsystem fails.
+    async with async_phase("timeline_build"):
+        try:
+            from app.timeline import build_timeline as _build_timeline
+            events = await _build_timeline(case_id)
+            await publish(case_id, {
+                "type": "timeline_built",
+                "case_id": str(case_id),
+                "data": {"events": len(events)},
+            })
+        except Exception as e:  # noqa: BLE001
+            await publish(case_id, {"type": "warning", "case_id": str(case_id),
+                                     "data": {"stage": "timeline_build", "error": str(e)[:500]}})
 
     # Synthesis
     if llm in ("claude", "gemini"):

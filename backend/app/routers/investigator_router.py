@@ -1,18 +1,20 @@
 """SSE router for the autonomous investigator.
 
-NOT wired into main.py yet — the dispatcher (Agent A8) must land first. To
-enable, register with `app.include_router(investigator_router.router)` and
-provide a `CollectorDispatcher` via dependency injection.
+Wave 3 — the previous Agent A8 stub has been replaced by
+``LiveCollectorDispatcher`` (see app.ai_investigator.collector_dispatcher).
+The dependency injection seam remains so tests can inject fakes; production
+defaults to the live dispatcher backed by the real DB + pivot dispatcher.
 """
 from __future__ import annotations
 
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.ai_investigator.collector_dispatcher import LiveCollectorDispatcher
 from app.ai_investigator.runner import (
     CollectorDispatcher,
     InvestigatorRunner,
@@ -31,12 +33,10 @@ class InvestigateRequest(BaseModel):
     case_brief: str | None = None
 
 
-async def get_dispatcher() -> CollectorDispatcher:  # pragma: no cover - DI seam
-    """Override this with the real Agent A8 dispatcher when wiring in main.py."""
-    raise HTTPException(
-        status_code=503,
-        detail="CollectorDispatcher not wired (waiting on Agent A8)",
-    )
+async def get_dispatcher() -> CollectorDispatcher:
+    """Production dispatcher. Tests can override this via FastAPI's
+    ``app.dependency_overrides`` to inject a fake implementation."""
+    return LiveCollectorDispatcher()  # type: ignore[return-value]
 
 
 @router.post(
