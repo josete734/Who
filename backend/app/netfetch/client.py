@@ -115,6 +115,11 @@ class _RedisTokenBucket:
 class _Transport(httpx.AsyncBaseTransport):
     """Wrapping transport: rate limit, UA rotation, proxy rotation, 429/503 backoff."""
 
+    # Wave 6 — dead-set cache TTL. We refresh from Redis at most this often
+    # to avoid a round-trip on every request while still picking up fresh
+    # health-check results within seconds.
+    _DEAD_REFRESH_S = 30.0
+
     def __init__(
         self,
         proxies: list[str],
@@ -128,6 +133,8 @@ class _Transport(httpx.AsyncBaseTransport):
         self._verify = verify
         self._proxy_idx = 0
         self._transports: dict[Optional[str], httpx.AsyncHTTPTransport] = {}
+        self._dead_set: set[str] = set()
+        self._dead_loaded_at: float = 0.0
 
     def _get_transport(self, proxy: Optional[str]) -> httpx.AsyncHTTPTransport:
         t = self._transports.get(proxy)
@@ -136,16 +143,46 @@ class _Transport(httpx.AsyncBaseTransport):
             self._transports[proxy] = t
         return t
 
+    async def _refresh_dead_set(self) -> None:
+        """Pull the proxy:dead Redis SET if our cached snapshot is stale.
+
+        Fail-soft: if Redis is down we keep the previous snapshot (or empty
+        if we never managed to load one). The proxy_health cron is the
+        source of truth — see app.perf.proxy_health.
+        """
+        now = time.monotonic()
+        if now - self._dead_loaded_at < self._DEAD_REFRESH_S:
+            return
+        self._dead_loaded_at = now
+        try:
+            redis = await self._bucket._get_redis()  # noqa: SLF001 — same module
+            if redis is None:
+                return
+            from app.perf.proxy_health import REDIS_DEAD_SET_KEY
+            members = await redis.smembers(REDIS_DEAD_SET_KEY)
+            self._dead_set = {str(m) for m in members or []}
+        except Exception:  # noqa: BLE001
+            # Fail-open: keep the old snapshot, don't crash the request.
+            return
+
     def _next_proxy(self) -> Optional[str]:
         if not self._proxies:
             return None
-        p = self._proxies[self._proxy_idx % len(self._proxies)]
+        # Filter against the (best-effort cached) dead-set. If every proxy
+        # is currently marked dead, fall back to the original rotation so
+        # we don't stall traffic — Redis may be lying or stale.
+        live = [p for p in self._proxies if p not in self._dead_set]
+        pool = live or self._proxies
+        p = pool[self._proxy_idx % len(pool)]
         self._proxy_idx += 1
         return p
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         host = request.url.host
         await self._bucket.acquire(host)
+        # Wave 6 — keep our dead-proxy cache fresh so _next_proxy filters
+        # correctly. Quick no-op when the cache hasn't expired yet.
+        await self._refresh_dead_set()
 
         # Per-request UA rotation (override any default)
         ua = random.choice(USER_AGENTS)

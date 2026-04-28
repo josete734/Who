@@ -32,6 +32,16 @@ outgoing:
   pool_connections: 100
   pool_maxsize: 20
   enable_http2: true
+  # Wave 6 — when SEARXNG_PROXY_VIA_TOR=1 in docker-compose env, route every
+  # outbound search-engine request through the bundled Tor SOCKS5 service.
+  # Trade-off: ~3-10x slower, but the host's public IP is never burned by
+  # repeated Google/Bing/Yandex queries from a single source. Turn off for
+  # latency-sensitive deployments.
+  # The proxy line is rendered only when the env var is set; SearXNG's own
+  # config loader expands ${VAR} on startup.
+  proxies:
+    https://: ${SEARXNG_OUTGOING_PROXY:-}
+    http://: ${SEARXNG_OUTGOING_PROXY:-}
 
 engines:
   - name: google
