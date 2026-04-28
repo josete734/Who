@@ -73,6 +73,11 @@ def _r_graph():
     return r
 
 
+def _r_graph_analytics():
+    from app.routers.graph_analytics import router as r
+    return r
+
+
 def _r_metrics():
     from app.routers.metrics_router import router as r
     return r
@@ -90,11 +95,6 @@ def _r_photos():
 
 def _r_scoring():
     from app.routers.scoring_router import router as r
-    return r
-
-
-def _r_uiv2():
-    from app.routers.ui_v2_router import router as r
     return r
 
 
@@ -148,16 +148,26 @@ def _r_strava():
     return r
 
 
+def _r_timeline():
+    from app.routers.timeline_router import router as r
+    return r
+
+
+def _r_geo():
+    from app.routers.geo_router import router as r
+    return r
+
+
 for _name, _imp in [
     ("audit", _r_audit),
     ("cache_admin", _r_cache),
     ("entities", _r_entities),
     ("graph", _r_graph),
+    ("graph_analytics", _r_graph_analytics),
     ("metrics", _r_metrics),
     ("pattern_miner", _r_pattern),
     ("photos", _r_photos),
     ("scoring", _r_scoring),
-    ("ui_v2", _r_uiv2),
     ("investigator", _r_investigator),
     ("admin_keys", _r_admin_keys),
     ("export", _r_export),
@@ -168,5 +178,17 @@ for _name, _imp in [
     ("webhooks", _r_webhooks),
     ("watchlist", _r_watchlist),
     ("strava", _r_strava),
+    ("timeline", _r_timeline),
+    ("geo", _r_geo),
 ]:
     _try_include(app, _imp, _name)
+
+
+# Legacy /v2 redirect: /case/{id} is the canonical unified view.
+from fastapi.responses import RedirectResponse  # noqa: E402
+
+
+@app.get("/v2/case/{case_id}", include_in_schema=False)
+@app.get("/v2/cases/{case_id}", include_in_schema=False)
+def _v2_redirect(case_id: str):
+    return RedirectResponse(url=f"/case/{case_id}", status_code=301)
