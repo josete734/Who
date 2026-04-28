@@ -35,11 +35,56 @@ def _load(modname: str, path: Path):
 # inside resilience.py resolves without running the real __init__.py.
 import types as _types
 
+# Capture whatever module (if any) the test session loaded BEFORE us so we
+# can restore it once this module's tests are done. Without this guard the
+# resilience tests poison sys.modules for the rest of the session and any
+# later test that does ``from app.collectors import collector_registry``
+# fails at import time. (Uncovered by the W10 golden-path test.)
+_PRIOR_APP = sys.modules.get("app")
+_PRIOR_APP_COLLECTORS = sys.modules.get("app.collectors")
+
 _pkg_app = sys.modules.setdefault("app", _types.ModuleType("app"))
 _pkg_app.__path__ = [str(_COLLECTORS_DIR.parent)]  # type: ignore[attr-defined]
 _pkg_collectors = _types.ModuleType("app.collectors")
 _pkg_collectors.__path__ = [str(_COLLECTORS_DIR)]  # type: ignore[attr-defined]
 sys.modules["app.collectors"] = _pkg_collectors
+
+# Make ``from app.collectors import collector_registry`` resolve to a no-op
+# even while our stub is in place. The real package overwrites this on
+# normal load; this constant is only here so other test modules collected
+# at the same time as test_resilience don't fail to import.
+class _StubRegistry:
+    def all(self):
+        return []
+
+    def by_name(self, name):
+        return None
+
+    def applicable_for(self, _input):
+        return []
+
+
+_pkg_collectors.collector_registry = _StubRegistry()  # type: ignore[attr-defined]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _restore_app_collectors_module():
+    """Restore the original ``app.collectors`` (or remove the stub) after
+    this module finishes so subsequent tests can import the real package.
+    """
+    yield
+    # Drop our stub from sys.modules. Subsequent tests will trigger a fresh
+    # import of the real package (which loads every collector).
+    if _PRIOR_APP_COLLECTORS is not None:
+        sys.modules["app.collectors"] = _PRIOR_APP_COLLECTORS
+    else:
+        sys.modules.pop("app.collectors", None)
+    if _PRIOR_APP is not None:
+        sys.modules["app"] = _PRIOR_APP
+    # Also wipe the loaded base/resilience so the real package can re-load
+    # them with the correct __init__.py side effects.
+    for mod in ("app.collectors.base", "app.collectors.resilience", "app.schemas"):
+        sys.modules.pop(mod, None)
 
 # Real schemas module — lightweight (only pydantic).
 _schemas = _load("app.schemas", _COLLECTORS_DIR.parent / "schemas.py")
