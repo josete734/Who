@@ -162,6 +162,7 @@ async def run_triangulation(ctx: dict[str, Any], case_id_str: str) -> int:
         return 0
 
     emitted = 0
+    home_candidates: list[InferredLocation] = []
     for loc in locations:
         try:
             await _persist_inferred(case_id, loc)
@@ -185,4 +186,105 @@ async def run_triangulation(ctx: dict[str, Any], case_id_str: str) -> int:
         except Exception as e:  # noqa: BLE001
             log.warning("triangulation.publish_failed case=%s err=%s", case_id, e)
         emitted += 1
+        if loc.kind in ("inferred_home", "inferred_work") and loc.confidence >= 0.7:
+            home_candidates.append(loc)
+
+    # Wave 2: second-pass Strava heatmap around each high-confidence inferred
+    # home/work centroid. This breaks the prior circular dependency where the
+    # heatmap needed a bbox to run, and the bbox was only known after the
+    # triangulation. Fail-soft: any error here does not affect the primary
+    # triangulation result that the caller already received.
+    for loc in home_candidates[:2]:  # cap: at most two re-passes per case
+        try:
+            await _heatmap_second_pass(case_id, loc.lat, loc.lon)
+        except Exception as e:  # noqa: BLE001
+            log.warning(
+                "triangulation.heatmap_second_pass_failed case=%s err=%s",
+                case_id,
+                e,
+            )
+
     return emitted
+
+
+async def _heatmap_second_pass(
+    case_id: uuid.UUID, lat: float, lon: float, half_km: float = 1.0
+) -> None:
+    """Re-run the Strava heatmap collector on a tight bbox around (lat, lon).
+
+    Resolves the prior wave-1 circular dependency: the heatmap needs a bbox
+    in extra_context, but the bbox was previously only known once we had
+    triangulated polylines — chicken and egg. After triangulation, we now
+    inject a 2 km × 2 km bbox around each inferred home/work centroid and
+    persist any new hotspot findings produced by the second pass.
+
+    Hotspot findings emitted here carry payload.second_pass=True so the
+    consumers can distinguish them from first-pass hotspots.
+    """
+    try:
+        from app.collectors.strava_heatmap import StravaHeatmapCollector
+        from app.schemas import SearchInput
+    except Exception:  # pragma: no cover
+        return
+
+    bbox_str = (
+        f"strava_bbox={lat - half_km / 111:.6f},"
+        f"{lon - half_km / (111 * 0.7):.6f},"
+        f"{lat + half_km / 111:.6f},"
+        f"{lon + half_km / (111 * 0.7):.6f}"
+    )
+    si = SearchInput(extra_context=bbox_str)
+    collector = StravaHeatmapCollector()
+
+    persisted = 0
+    async with session_scope() as s:
+        async for finding in collector.run(si):
+            try:
+                fid = uuid.uuid4()
+                payload = dict(finding.payload or {})
+                payload["second_pass"] = True
+                payload["centroid_lat"] = lat
+                payload["centroid_lon"] = lon
+                fp = (
+                    f"heatmap2:{round(payload.get('lat', 0.0), 4)}:"
+                    f"{round(payload.get('lon', 0.0), 4)}"
+                )
+                await s.execute(
+                    text(
+                        "INSERT INTO findings "
+                        "(id, case_id, collector, category, entity_type, title, "
+                        " url, confidence, payload, fingerprint) "
+                        "VALUES (:id, :cid, :col, :cat, :et, :t, :u, :c, "
+                        "CAST(:p AS JSONB), :fp) "
+                        "ON CONFLICT (case_id, fingerprint) DO NOTHING"
+                    ),
+                    {
+                        "id": fid,
+                        "cid": str(case_id),
+                        "col": finding.collector,
+                        "cat": finding.category,
+                        "et": finding.entity_type,
+                        "t": finding.title,
+                        "u": finding.url,
+                        "c": float(finding.confidence),
+                        "p": json.dumps(payload),
+                        "fp": fp,
+                    },
+                )
+                persisted += 1
+            except Exception as e:  # noqa: BLE001
+                log.warning("heatmap_second_pass.persist_failed err=%s", e)
+                continue
+    if persisted:
+        await publish(
+            case_id,
+            {
+                "type": "heatmap_second_pass",
+                "case_id": str(case_id),
+                "data": {
+                    "centroid_lat": lat,
+                    "centroid_lon": lon,
+                    "hotspots_added": persisted,
+                },
+            },
+        )

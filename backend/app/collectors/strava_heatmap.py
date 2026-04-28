@@ -54,6 +54,44 @@ INFERRED_LATLON_RX = re.compile(
 )
 
 
+def _bbox_around(lat: float, lon: float, half_km: float = 2.5) -> tuple[float, float, float, float]:
+    """Return a (lat_min, lon_min, lat_max, lon_max) square around a point.
+
+    1° latitude ≈ 111 km. Longitude scales by cos(lat). half_km defines half of
+    the bbox edge (so half_km=2.5 → ~5 km × 5 km square).
+    """
+    dlat = half_km / 111.0
+    dlon = half_km / (111.0 * max(0.05, math.cos(math.radians(lat))))
+    return (lat - dlat, lon - dlon, lat + dlat, lon + dlon)
+
+
+async def _derive_bbox_from_input(input: SearchInput) -> tuple[float, float, float, float] | None:
+    """Last-resort bbox derivation: geocode ``input.city`` (+country) via Nominatim.
+
+    Used when the orchestrator hasn't injected an explicit bbox/inferred-home
+    into ``extra_context`` yet — the heatmap is otherwise non-applicable on
+    the first pass of a brand-new case. Reuses the project-wide geocoder
+    (DB-cached + 1 req/s rate-limited).
+    """
+    city = (getattr(input, "city", None) or "").strip()
+    if not city:
+        return None
+    country = (getattr(input, "country", None) or "").strip()
+    query = f"{city}, {country}" if country else city
+    try:
+        from app.geo.extractor import _Geocoder  # local import — heavy module
+    except Exception:
+        return None
+    try:
+        result = await _Geocoder.get().geocode(query, allow_live=True)
+    except Exception:
+        return None
+    if not result:
+        return None
+    lat, lon, _accuracy = result
+    return _bbox_around(lat, lon, half_km=2.5)
+
+
 def _parse_bbox(extra_context: str | None) -> tuple[float, float, float, float] | None:
     if not extra_context:
         return None
@@ -111,7 +149,12 @@ def _bbox_tiles(
 
 
 async def _load_cookie() -> str | None:
-    """CloudFront cookie from env or strava_tokens table (best-effort)."""
+    """CloudFront cookie from env or strava_tokens table (best-effort).
+
+    The DB-stored value is encrypted by ``app.integrations.strava_oauth.encrypt``
+    when written by the ``POST /strava/heatmap-cookie`` endpoint, so it must be
+    decrypted before being returned. Plaintext env values pass through.
+    """
     env = os.getenv("STRAVA_HEATMAP_COOKIE")
     if env:
         return env.strip()
@@ -119,6 +162,7 @@ async def _load_cookie() -> str | None:
         from sqlalchemy import text
 
         from app.db import SessionLocal
+        from app.integrations.strava_oauth import decrypt
     except Exception:  # pragma: no cover
         return None
     try:
@@ -128,16 +172,21 @@ async def _load_cookie() -> str | None:
                     text(
                         "SELECT cloudfront_cookie FROM strava_tokens "
                         "WHERE cloudfront_cookie IS NOT NULL "
-                        "ORDER BY expires_at DESC NULLS LAST LIMIT 1"
+                        "ORDER BY cloudfront_cookie_updated_at DESC NULLS LAST LIMIT 1"
                     )
                 )
             ).first()
-            if row and row[0]:
-                return str(row[0])
+            if not row or not row[0]:
+                return None
+            blob = str(row[0])
+            try:
+                return decrypt(blob)
+            except Exception:
+                # Backwards-compat: legacy rows may have stored plaintext.
+                return blob
     except Exception:
-        # Table may not exist yet (A1.2 not landed) — silently fall through.
+        # Table may not exist yet — silently fall through.
         return None
-    return None
 
 
 def _hotspots_from_png(
@@ -184,15 +233,23 @@ def _block_centroid_latlon(
 class StravaHeatmapCollector(Collector):
     name = "strava_heatmap"
     category = "sport"
-    needs = ("extra_context",)
+    # Wave 2: also accept (city, country) so the collector is applicable on the
+    # first pass of a case without requiring a hand-injected bbox. Any of these
+    # fields is enough; the actual bbox derivation happens in run().
+    needs = ("extra_context", "city")
     timeout_seconds = 60
     description = (
         "Strava global heatmap tile sampler — extracts hotspot centroids "
-        "for a bbox from extra_context. Requires a CloudFront cookie."
+        "for a bbox parsed from extra_context, an inferred home point, or "
+        "geocoded from input.city/country. Requires a CloudFront cookie."
     )
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
+        # Three-tier bbox resolution: explicit bbox in extra_context > inferred
+        # home point > Nominatim of city+country.
         bbox = _parse_bbox(input.extra_context)
+        if not bbox:
+            bbox = await _derive_bbox_from_input(input)
         if not bbox:
             return
         cookie = await _load_cookie()

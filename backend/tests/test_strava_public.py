@@ -100,11 +100,17 @@ async def test_strava_public_resolves_via_extra_context_id():
     assert acc.payload["follow_count"] == 64
     assert acc.payload["hometown"].startswith("Madrid")
 
-    # Activities — at least the one with a polyline must carry it.
-    polylined = [a for a in activities if a.payload.get("polyline")]
-    assert polylined, "expected at least one activity with a visible polyline"
-    assert polylined[0].payload["polyline"] == "abc_encoded_polyline_xyz"
-    assert polylined[0].payload["activity_id"] == "55555"
+    # Activities — Wave 2 dead-code removal: Strava no longer emits
+    # `data-polyline` on the public profile page (since 2018+), so every
+    # extracted activity now carries polyline=None. We still capture the
+    # activity IDs and titles for temporal correlation; real polylines come
+    # from strava_authed when an OAuth token is bound, or from the heatmap.
+    activity_ids = {a.payload.get("activity_id") for a in activities}
+    assert "55555" in activity_ids, f"expected activity 55555, got {activity_ids}"
+    for act in activities:
+        assert act.payload.get("polyline") is None, (
+            f"polyline must be None post-Wave 2, got {act.payload.get('polyline')!r}"
+        )
 
     # Routes parsed.
     assert {r.payload["route_id"] for r in routes} == {"777", "888"}

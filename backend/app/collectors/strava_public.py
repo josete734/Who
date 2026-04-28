@@ -146,9 +146,13 @@ def _parse_profile(html: str) -> dict[str, Any]:
                 if cid not in out["club_ids"]:
                     out["club_ids"].append(cid)
 
-    # Recent activities table — Strava uses <table class="..."> with rows that
-    # often embed a data attribute holding the encoded polyline. We only grab
-    # what is visible without auth.
+    # Wave 2 fix: Strava removed the `data-polyline` / `data-encoded-polyline`
+    # attributes from public profile HTML around 2018-2020 — anonymous scraping
+    # never recovers polylines from this page anymore. We still capture the
+    # visible activity IDs + titles for temporal correlation (and so the
+    # downstream pipeline knows the athlete is active), but the polyline field
+    # is always None. Real polylines come from strava_authed (when an OAuth
+    # token is bound to the case) or from the heatmap collector.
     for row in soup.select("table tr, .feed-entry, .activity"):
         a_link = row.find("a", href=re.compile(r"/activities/(\d+)"))
         if not a_link:
@@ -158,26 +162,11 @@ def _parse_profile(html: str) -> dict[str, Any]:
             continue
         activity_id = m_aid.group(1)
         title = a_link.get_text(" ", strip=True) or None
-        polyline = None
-        for attr in ("data-polyline", "data-encoded-polyline", "data-summary-polyline"):
-            v = row.get(attr) if hasattr(row, "get") else None
-            if v:
-                polyline = v
-                break
-        if polyline is None:
-            inner = row.find(attrs={"data-polyline": True}) or row.find(
-                attrs={"data-encoded-polyline": True}
-            )
-            if inner is not None:
-                polyline = (
-                    inner.get("data-polyline")
-                    or inner.get("data-encoded-polyline")
-                )
         out["recent_activities"].append(
             {
                 "activity_id": activity_id,
                 "title": title,
-                "polyline": polyline,
+                "polyline": None,
             }
         )
 
