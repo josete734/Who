@@ -183,7 +183,7 @@ _SUBGRAPH_NODES = text(
     SELECT id, case_id, type, key, attrs, score
       FROM graph_nodes
      WHERE case_id = :case_id
-       AND (:min_score IS NULL OR score >= :min_score)
+       AND (CAST(:min_score AS float8) IS NULL OR score >= CAST(:min_score AS float8))
     """
 )
 _SUBGRAPH_EDGES = text(
@@ -191,9 +191,9 @@ _SUBGRAPH_EDGES = text(
     SELECT e.id, e.case_id, e.src, e.dst, e.rel, e.weight, e.evidence
       FROM graph_edges e
      WHERE e.case_id = :case_id
-       AND (:min_score IS NULL OR EXISTS (
+       AND (CAST(:min_score AS float8) IS NULL OR EXISTS (
               SELECT 1 FROM graph_nodes n
-               WHERE n.id IN (e.src, e.dst) AND n.score >= :min_score
+               WHERE n.id IN (e.src, e.dst) AND n.score >= CAST(:min_score AS float8)
            ))
     """
 )
