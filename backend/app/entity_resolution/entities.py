@@ -17,6 +17,11 @@ EntityType = Literal[
     "Photo",
     "Location",
     "Document",
+    # Wave 5 — first-class organisations and events. ER rules R11 / R12 use
+    # VAT-style identifiers and (when, where) tuples to dedupe across the
+    # registry collectors (BORME, axesor, OpenCorporates, etc.).
+    "Organization",
+    "Event",
 ]
 
 
