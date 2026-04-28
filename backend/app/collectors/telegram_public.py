@@ -29,7 +29,8 @@ class TelegramPublicCollector(Collector):
     timeout_seconds = 15
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         url = f"https://t.me/{u}"
         async with client(timeout=10) as c:

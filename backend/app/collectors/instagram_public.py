@@ -25,7 +25,8 @@ class InstagramPublicCollector(Collector):
     description = "Instagram public profile (JSON endpoint + OG tags fallback)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         async with client(
             timeout=15,
@@ -77,11 +78,14 @@ class InstagramPublicCollector(Collector):
             if r.status_code != 200:
                 return
             html = r.text
-            if "Sorry, this page isn" in html or "login_popup" in html and "@%s" % u not in html:
-                pass  # still try; OG may still appear
+            # Bail on the login-wall / "user not found" pages — Instagram still emits
+            # generic OG tags for these and we'd otherwise emit a false-positive finding.
+            if "Sorry, this page isn" in html or ("login_popup" in html and f"@{u}" not in html):
+                return
             og_title = _pick(html, r'<meta property="og:title" content="([^"]+)"')
             og_desc = _pick(html, r'<meta property="og:description" content="([^"]+)"')
             og_img = _pick(html, r'<meta property="og:image" content="([^"]+)"')
+            # Identity guard: emit only if the username clearly appears in the OG title.
             if og_title and u.lower() in og_title.lower():
                 yield Finding(
                     collector=self.name,

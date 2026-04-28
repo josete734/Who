@@ -23,7 +23,8 @@ class CrtShDomainCollector(Collector):
     description = "crt.sh: Certificate Transparency by domain (subdomain discovery)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.domain
+        if not input.domain:
+            return
         q = f"%25.{input.domain.strip('.')}"
         async with client(timeout=25) as c:
             try:
@@ -60,7 +61,8 @@ class CrtShEmailCollector(Collector):
     description = "crt.sh: search certificates that mention the email address."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.email
+        if not input.email:
+            return
         async with client(timeout=25) as c:
             try:
                 r = await c.get("https://crt.sh/", params={"q": input.email, "output": "json"})

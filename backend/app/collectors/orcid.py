@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 import httpx
 
 from app.collectors.base import Collector, Finding, register
+from app.collectors._relevance import context_from_input, score_relevance
 from app.http_util import client
 from app.schemas import SearchInput
 
@@ -39,8 +40,13 @@ class OrcidCollector(Collector):
         if not queries:
             return
 
+        ctx = context_from_input(input)
+        emitted = 0
+        max_total = 5
         async with client(timeout=20, headers={"Accept": "application/json"}) as c:
             for q in queries:
+                if emitted >= max_total:
+                    break
                 try:
                     r = await c.get(
                         "https://pub.orcid.org/v3.0/expanded-search/",
@@ -68,6 +74,8 @@ class OrcidCollector(Collector):
                 if not isinstance(results, list):
                     continue
                 for hit in results[:10]:
+                    if emitted >= max_total:
+                        break
                     if not isinstance(hit, dict):
                         continue
                     orcid = hit.get("orcid-id")
@@ -83,18 +91,31 @@ class OrcidCollector(Collector):
                     email_val = hit.get("email")
                     if isinstance(email_val, list):
                         email_val = email_val[0] if email_val else None
+                    text_blob = " ".join(
+                        str(x) for x in (display, institution, email_val, orcid) if x
+                    )
+                    rel = score_relevance(text_blob, ctx)
+                    if rel >= 0.5:
+                        confidence = 0.85
+                        role = "confirmed"
+                    else:
+                        confidence = 0.25
+                        role = "candidate_homonym"
                     yield Finding(
                         collector=self.name,
                         category="academic",
                         entity_type="ORCIDProfile",
                         title=f"ORCID: {display or orcid}",
                         url=f"https://orcid.org/{orcid}",
-                        confidence=0.85 if input.email else 0.55,
+                        confidence=confidence,
                         payload={
                             "orcid": orcid,
                             "given_names": given or None,
                             "family_names": family or None,
                             "institution": institution,
                             "email": email_val,
+                            "role": role,
+                            "relevance": rel,
                         },
                     )
+                    emitted += 1

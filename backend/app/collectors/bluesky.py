@@ -34,7 +34,8 @@ class BlueskyCollector(Collector):
     timeout_seconds = 30
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         candidates = [u, f"{u}.bsky.social"]
         async with client(timeout=12) as c:

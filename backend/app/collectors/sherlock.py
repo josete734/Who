@@ -22,7 +22,8 @@ class SherlockCollector(Collector):
     description = "Sherlock: username across ~400 platforms."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         if not shutil.which("sherlock"):
             raise RuntimeError("sherlock CLI not installed")
 

@@ -42,7 +42,8 @@ class SuuntoPublicCollector(Collector):
     timeout_seconds = 15
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         username = input.username.lstrip("@")
         url = PROFILE_URL.format(username=username)
 

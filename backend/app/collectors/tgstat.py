@@ -65,7 +65,8 @@ class TGStatCollector(Collector):
     description = "TGStat public Telegram channel HTML scrape."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         channel = input.username.lstrip("@")
         url = PROFILE_URL.format(channel=channel)
 

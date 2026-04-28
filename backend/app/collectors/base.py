@@ -7,11 +7,60 @@ from __future__ import annotations
 
 import abc
 import hashlib
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.schemas import SearchInput
+
+
+# Query params that are tracking noise and should not affect the fingerprint.
+_TRACKER_PARAMS: frozenset[str] = frozenset({
+    "ref", "fbclid", "gclid", "mc_cid", "mc_eid", "yclid", "msclkid",
+    "_hsenc", "_hsmi", "vero_id", "vero_conv",
+})
+_TRACKER_PREFIXES: tuple[str, ...] = ("utm_",)
+_PUNCT_RE = re.compile(r"[^\w\s]+", re.UNICODE)
+_WS_RE = re.compile(r"\s+", re.UNICODE)
+
+
+def _is_tracker_param(key: str) -> bool:
+    k = key.lower()
+    if k in _TRACKER_PARAMS:
+        return True
+    return any(k.startswith(p) for p in _TRACKER_PREFIXES)
+
+
+def _normalize_url(url: str) -> str:
+    """Lowercase scheme/host, strip tracker query params, drop trailing slash."""
+    try:
+        parts = urlsplit(url.strip())
+    except Exception:  # noqa: BLE001
+        return url.strip().lower()
+    scheme = parts.scheme.lower()
+    netloc = parts.netloc.lower()
+    path = parts.path or ""
+    if len(path) > 1 and path.endswith("/"):
+        path = path.rstrip("/")
+    if parts.query:
+        kept = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
+                if not _is_tracker_param(k)]
+        kept.sort()
+        query = urlencode(kept, doseq=True)
+    else:
+        query = ""
+    rebuilt = urlunsplit((scheme, netloc, path, query, ""))
+    return rebuilt.lower()
+
+
+def _normalize_title(title: str) -> str:
+    """Lowercase, collapse whitespace, strip extra punctuation."""
+    t = title.lower()
+    t = _PUNCT_RE.sub(" ", t)
+    t = _WS_RE.sub(" ", t).strip()
+    return t
 
 
 @dataclass
@@ -25,8 +74,17 @@ class Finding:
     payload: dict[str, Any] = field(default_factory=dict)
 
     def fingerprint(self) -> str:
-        """Stable hash for dedup across collectors."""
-        base = "|".join([self.category, self.entity_type, (self.url or self.title).lower()])
+        """Stable hash for dedup across collectors.
+
+        Normalises the URL (or, if absent, the title) so cosmetic differences
+        (tracker query params, trailing slashes, casing, punctuation,
+        whitespace) collapse to the same fingerprint.
+        """
+        if self.url:
+            normalized = _normalize_url(self.url)
+        else:
+            normalized = _normalize_title(self.title or "")
+        base = "|".join([self.category, self.entity_type, normalized])
         return hashlib.sha256(base.encode("utf-8")).hexdigest()[:32]
 
 
@@ -57,6 +115,49 @@ class Collector(abc.ABC):
         """Async generator yielding Finding objects."""
         if False:
             yield  # pragma: no cover
+
+
+def _identity_matches(input: SearchInput, haystack: str, fields: tuple[str, ...] = ("username", "full_name", "phone", "email")) -> bool:
+    """Cheap identity guard for HTML scrapers.
+
+    Returns True when at least one identity-bearing field from ``input`` shows up
+    (case-insensitively) in the ``haystack`` text. Use before yielding findings
+    on collectors whose endpoints return generic OG/SPA shells when the subject
+    is absent — prevents emitting a "valid" finding for a login-wall page.
+    """
+    if not haystack:
+        return False
+    needle_set = []
+    for f in fields:
+        v = getattr(input, f, None)
+        if not v:
+            continue
+        v = str(v).strip().lstrip("@")
+        if len(v) >= 3:
+            needle_set.append(v.lower())
+    if not needle_set:
+        return True  # nothing to compare against — fall through (caller decides)
+    h = haystack.lower()
+    return any(n in h for n in needle_set)
+
+
+def _dynamic_confidence(base: float, payload: dict[str, Any], required_keys: tuple[str, ...] | None = None) -> float:
+    """Degrade confidence when the extracted payload has no meaningful values.
+
+    Scrapers that yield a finding even when their payload is mostly None should
+    pass confidence through this helper so the orchestrator's downstream
+    consensus and synthesis layers can distinguish high-signal from low-signal
+    rows.
+
+    If ``required_keys`` is provided, returns the empty-payload penalty unless
+    any of those keys carries truthy data. Otherwise checks every value in the
+    payload.
+    """
+    if required_keys:
+        any_signal = any(payload.get(k) for k in required_keys)
+    else:
+        any_signal = any(v not in (None, "", [], {}, 0) for v in payload.values())
+    return base if any_signal else base * 0.4
 
 
 class _Registry:

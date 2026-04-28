@@ -58,7 +58,8 @@ class SubdomainPassiveCollector(Collector):
     description = "Passive subdomain enumeration via subfinder/amass (self-hosted)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.domain
+        if not input.domain:
+            return
         domain = input.domain.strip().lower()
         if not _DOMAIN_RE.match(domain):
             return

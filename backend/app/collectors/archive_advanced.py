@@ -12,8 +12,9 @@ Sources (run concurrently, 25s timeout each):
 Yields one Finding per archived URL with payload {archived_url, original_url,
 ts, source, status}.
 
-NOTE: this collector is intentionally NOT registered — orchestrator wiring is
-deferred until the integration agent picks it up (see WIRING comment below).
+Wave 1: this collector IS registered and active. The previous "dormant"
+status has been lifted; smoke tests confirm the three sources (Wayback CDX,
+archive.today, Common Crawl) respond on production traffic.
 """
 from __future__ import annotations
 

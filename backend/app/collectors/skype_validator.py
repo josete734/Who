@@ -30,7 +30,8 @@ class SkypeValidatorCollector(Collector):
     description = "Skype account existence via login.skype.com signup validator."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@").strip()
         if not u:
             return

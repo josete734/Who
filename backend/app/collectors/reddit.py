@@ -64,7 +64,8 @@ class RedditUserCollector(Collector):
     description = "Reddit public profile + recent submissions/comments via reddit.com/user/<name>"
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         s = get_settings()
         headers = {"User-Agent": s.reddit_user_agent or "osint-tool/1.0"}
         u = input.username

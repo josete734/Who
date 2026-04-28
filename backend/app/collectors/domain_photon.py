@@ -34,7 +34,8 @@ class DomainPhotonCollector(Collector):
     description = "Photon-style crawl of user's own domain: emails, phones, social links."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.domain
+        if not input.domain:
+            return
         base = input.domain.strip()
         if not base.startswith("http"):
             base = "https://" + base.lstrip("/")
@@ -83,9 +84,20 @@ class DomainPhotonCollector(Collector):
                         confidence=0.55, payload={"phone_raw": m.strip(), "page": url},
                     )
 
-                for m in SOCIAL_RX.findall(html):
-                    full = re.search(SOCIAL_RX, html)
-                # Grab the actual URLs matched
+                # Inline social URLs (text/JSON embedded in the HTML, not just <a href>).
+                for m in SOCIAL_RX.finditer(html):
+                    norm = m.group(0).rstrip("/")
+                    if norm in seen_socials:
+                        continue
+                    seen_socials.add(norm)
+                    yield Finding(
+                        collector=self.name, category="social", entity_type="SocialLinkOnSite",
+                        title=f"Enlace social en {parsed.netloc}: {norm[:140]}",
+                        url=norm, confidence=0.75,
+                        payload={"source_page": url, "extracted_from": "html_inline"},
+                    )
+
+                # Extract from <a href> tags too (canonical anchor links).
                 for link in soup.find_all("a", href=True):
                     href = link["href"]
                     if SOCIAL_RX.search(href):

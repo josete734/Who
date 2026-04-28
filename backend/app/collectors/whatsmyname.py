@@ -64,7 +64,8 @@ class WhatsMyNameCollector(Collector):
     description = "WhatsMyName: probes username across 1700+ sites (wmn-data.json)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         username = input.username.lstrip("@")
 
         try:

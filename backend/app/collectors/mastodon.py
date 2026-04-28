@@ -35,7 +35,8 @@ class MastodonWebFingerCollector(Collector):
     timeout_seconds = 90
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         async with client(timeout=8) as c:
             for inst in INSTANCES:

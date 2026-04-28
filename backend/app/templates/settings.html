@@ -26,6 +26,82 @@
   <p class="mt-2"><strong>LLM por defecto:</strong> cambia <code>DEFAULT_LLM</code> a <code>gemini</code>, <code>openai</code>, <code>ollama</code>, o <code>none</code> (sin síntesis).</p>
 </div>
 
+<!-- Strava heatmap CloudFront cookie -->
+<div class="card p-6 max-w-4xl mt-8">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold">Cookie Strava Heatmap</h2>
+    <span id="cf-status" class="text-xs text-neutral-400">cargando…</span>
+  </div>
+  <p class="text-xs text-neutral-400 mb-3 leading-relaxed">
+    El colector <code>strava_heatmap</code> usa el endpoint autenticado <code>heatmap-external-*.strava.com/tiles-auth/</code>
+    que requiere las 3 cookies CloudFront que Strava emite al iniciar sesión web. Estas cookies caducan tras unos días y deben renovarse manualmente.
+  </p>
+  <details class="text-xs text-neutral-400 mb-3">
+    <summary class="cursor-pointer hover:text-white">¿Cómo obtenerlas?</summary>
+    <ol class="list-decimal pl-5 mt-2 space-y-1">
+      <li>Inicia sesión en <code>strava.com</code> con cualquier cuenta (no requiere Summit).</li>
+      <li>Navega a <code>strava.com/heatmap</code> y mueve el mapa para que cargue tiles.</li>
+      <li>Abre DevTools (F12) → pestaña <em>Network</em> → click en cualquier request a <code>heatmap-external-*.strava.com</code>.</li>
+      <li>En la request, copia el header completo <code>Cookie:</code> (debe contener <code>CloudFront-Policy</code>, <code>CloudFront-Signature</code> y <code>CloudFront-Key-Pair-Id</code>).</li>
+      <li>Pega abajo y pulsa <em>Validar y guardar</em>.</li>
+    </ol>
+  </details>
+  <textarea id="cf-cookie" class="input min-h-[6em] font-mono text-xs" placeholder="CloudFront-Policy=...; CloudFront-Signature=...; CloudFront-Key-Pair-Id=..."></textarea>
+  <div class="flex items-center gap-3 mt-3">
+    <button id="cf-save" type="button" class="rounded-md bg-white text-black font-medium px-5 py-2.5 text-sm hover:bg-neutral-200">Validar y guardar</button>
+    <button id="cf-clear" type="button" class="rounded-md bg-neutral-800 text-white font-medium px-5 py-2.5 text-sm hover:bg-neutral-700">Borrar</button>
+    <span id="cf-msg" class="text-xs"></span>
+  </div>
+</div>
+
+<script>
+const CF_COOKIE = document.getElementById("cf-cookie");
+const CF_SAVE = document.getElementById("cf-save");
+const CF_CLEAR = document.getElementById("cf-clear");
+const CF_MSG = document.getElementById("cf-msg");
+const CF_STATUS = document.getElementById("cf-status");
+
+async function loadCookieStatus() {
+  try {
+    const r = await fetch("/strava/heatmap-cookie/status");
+    const data = await r.json();
+    if (data.present) {
+      CF_STATUS.textContent = "✓ cookie cargada (" + (data.updated_at?.slice(0,16) || "fecha desconocida") + ")";
+      CF_STATUS.className = "text-xs text-emerald-400";
+    } else {
+      CF_STATUS.textContent = "⚠ sin cookie";
+      CF_STATUS.className = "text-xs text-amber-400";
+    }
+  } catch (_) { /* keep loading state */ }
+}
+
+CF_SAVE.addEventListener("click", async () => {
+  CF_MSG.textContent = "validando contra Strava…"; CF_MSG.className = "text-xs text-neutral-400";
+  const r = await fetch("/strava/heatmap-cookie", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cookie: CF_COOKIE.value || ""}),
+  });
+  if (!r.ok) {
+    let body = ""; try { body = (await r.json()).detail || ""; } catch (_) {}
+    CF_MSG.textContent = "✗ error: " + (body || r.status);
+    CF_MSG.className = "text-xs text-red-400";
+    return;
+  }
+  CF_MSG.textContent = "✓ cookie válida y guardada"; CF_MSG.className = "text-xs text-emerald-400";
+  CF_COOKIE.value = "";
+  loadCookieStatus();
+});
+
+CF_CLEAR.addEventListener("click", async () => {
+  await fetch("/strava/heatmap-cookie", {method: "DELETE"});
+  CF_MSG.textContent = "✓ cookie borrada"; CF_MSG.className = "text-xs text-emerald-400";
+  loadCookieStatus();
+});
+
+loadCookieStatus();
+</script>
+
 <script>
 const FIELDS = document.getElementById("fields");
 const FORM = document.getElementById("settings-form");
@@ -34,7 +110,7 @@ const ERR = document.getElementById("err");
 
 const GROUPS = {
   "LLM": ["DEFAULT_LLM", "GEMINI_API_KEY", "GEMINI_MODEL", "OPENAI_API_KEY", "OPENAI_MODEL", "OLLAMA_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_MODEL", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"],
-  "Colectores": ["GITHUB_TOKEN", "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT", "COMPANIES_HOUSE_KEY", "RAPIDAPI_KEY", "SHODAN_API_KEY", "URLSCAN_API_KEY", "LEAKIX_API_KEY", "HUNTER_API_KEY", "NUMVERIFY_API_KEY"],
+  "Colectores": ["GITHUB_TOKEN", "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT", "COMPANIES_HOUSE_KEY", "SHODAN_API_KEY", "URLSCAN_API_KEY", "LEAKIX_API_KEY"],
 };
 
 async function loadSettings() {

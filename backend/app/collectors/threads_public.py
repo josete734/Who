@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 from bs4 import BeautifulSoup
 
-from app.collectors.base import Collector, Finding, register
+from app.collectors.base import Collector, Finding, _dynamic_confidence, _identity_matches, register
 from app.netfetch import get_client
 from app.schemas import SearchInput
 
@@ -100,7 +100,8 @@ class ThreadsPublicCollector(Collector):
     description = "Threads.net public profile HTML scrape (gentle, Tor fallback on 429)"
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         url = f"https://www.threads.net/@{u}"
 
@@ -130,22 +131,34 @@ class ThreadsPublicCollector(Collector):
         if not html:
             return
 
+        # Identity guard: a Threads SPA shell looks identical for "user not found"
+        # and rate-limited responses. Require the username to actually appear in
+        # the rendered HTML before treating this as a positive hit.
+        if not _identity_matches(input, html, fields=("username",)):
+            return
+
         data = parse_threads_html(html)
+        payload = {
+            "username": u,
+            "name": data.get("name"),
+            "bio": data.get("bio"),
+            "follower_count": data.get("follower_count"),
+            "post_count_visible": len(data.get("posts") or []),
+            "posts": (data.get("posts") or [])[:25],
+        }
+        # Dynamic confidence: degrade if the SPA returned no actual signal
+        # (no name, no bio, no follower count, no posts).
+        confidence = _dynamic_confidence(
+            0.75, payload, required_keys=("name", "bio", "follower_count", "post_count_visible"),
+        )
         yield Finding(
             collector=self.name,
             category="username",
             entity_type="ThreadsProfile",
             title=f"Threads: @{u}",
             url=url,
-            confidence=0.75,
-            payload={
-                "username": u,
-                "name": data.get("name"),
-                "bio": data.get("bio"),
-                "follower_count": data.get("follower_count"),
-                "post_count_visible": len(data.get("posts") or []),
-                "posts": (data.get("posts") or [])[:25],
-            },
+            confidence=confidence,
+            payload=payload,
         )
 
 

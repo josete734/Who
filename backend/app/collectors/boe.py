@@ -48,12 +48,27 @@ class BOECollector(Collector):
                     title = a.get_text(strip=True)
                     if not title:
                         continue
+                    # Identity guard: require the queried name (or one of its
+                    # tokens of length >=4) to actually appear in the result
+                    # title. Drops generic table-of-contents links that match
+                    # the search index but don't mention the subject.
+                    title_l = title.lower()
+                    name_l = name.lower()
+                    name_tokens = [t for t in name_l.split() if len(t) >= 4]
+                    if name_l in title_l:
+                        confidence = 0.7
+                    elif name_tokens and any(t in title_l for t in name_tokens):
+                        confidence = 0.55
+                    else:
+                        # Title doesn't actually reference the subject — skip,
+                        # don't pollute the findings with low-signal noise.
+                        continue
                     yield Finding(
                         collector=self.name,
                         category="es_official",
                         entity_type="BOEEntry",
                         title=f"BOE: {title[:180]}",
                         url=href,
-                        confidence=0.6,
+                        confidence=confidence,
                         payload={"name_queried": name, "city_hint": input.city},
                     )

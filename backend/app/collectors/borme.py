@@ -52,12 +52,25 @@ class BORMECollector(Collector):
                     if not title:
                         continue
                     ctx = item.get_text(" ", strip=True)[:400]
+                    # Identity guard: BORME's search index returns whole pages
+                    # whose titles often don't mention the subject; the actual
+                    # mention is in the surrounding context. Require the name
+                    # (or a 4+ char token of it) to appear in title OR ctx.
+                    haystack = f"{title} {ctx}".lower()
+                    name_l = name.lower()
+                    name_tokens = [t for t in name_l.split() if len(t) >= 4]
+                    if name_l in haystack:
+                        confidence = 0.75
+                    elif name_tokens and any(t in haystack for t in name_tokens):
+                        confidence = 0.55
+                    else:
+                        continue
                     yield Finding(
                         collector=self.name,
                         category="es_official",
                         entity_type="BORMEEntry",
                         title=f"BORME: {title[:180]}",
                         url=link,
-                        confidence=0.65,
+                        confidence=confidence,
                         payload={"raw": ctx, "name_queried": name, "city_hint": input.city},
                     )

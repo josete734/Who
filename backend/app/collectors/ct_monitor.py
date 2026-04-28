@@ -32,7 +32,8 @@ class CTMonitorCollector(Collector):
     )
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.domain
+        if not input.domain:
+            return
         domain = input.domain.strip(".").lower()
         params = {
             "domain": domain,

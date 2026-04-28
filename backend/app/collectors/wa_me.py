@@ -31,7 +31,8 @@ class WaMeCollector(Collector):
     description = "WhatsApp existence check via wa.me (passive)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.phone
+        if not input.phone:
+            return
         try:
             num = phonenumbers.parse(input.phone, None if input.phone.startswith("+") else "ES")
         except phonenumbers.NumberParseException:

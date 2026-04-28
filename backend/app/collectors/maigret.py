@@ -29,7 +29,8 @@ class MaigretCollector(Collector):
     description = "Maigret: username across 3000+ sites, extracts metadata."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         if not shutil.which("maigret"):
             logger.info("maigret CLI not installed — skipping", extra={"collector": self.name})
             return

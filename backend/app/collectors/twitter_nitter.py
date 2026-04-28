@@ -11,8 +11,10 @@ Findings:
   * tweets — list of recent tweets (text + ts + url)
   * external_links_in_bio — URLs extracted from the bio for pivoting
 
-The collector is NOT auto-registered — flip the import in
-``app/collectors/__init__.py`` once it has been validated in production.
+Wave 1: this collector IS auto-registered and active. The previous
+"validation pending" status has been lifted; identity guard + dynamic
+confidence ensure that Nitter/syndication shells without real profile data
+do not leak as high-confidence findings.
 """
 from __future__ import annotations
 
@@ -26,7 +28,7 @@ from urllib.parse import urljoin
 import feedparser
 import httpx
 
-from app.collectors.base import Collector, Finding, register
+from app.collectors.base import Collector, Finding, _dynamic_confidence, register
 from app.http_util import client
 from app.netfetch import get_client
 from app.schemas import SearchInput
@@ -302,7 +304,8 @@ class TwitterNitterCollector(Collector):
     description = "Twitter/X profile + recent tweets via Nitter mirrors."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         instances = [_strip_host(i) for i in _instances_from_env()]
 
@@ -378,6 +381,23 @@ class TwitterNitterCollector(Collector):
         # Wayback historical bio drift (always best-effort).
         history = await _fetch_wayback_cdx(u)
 
+        payload = {
+            "profile_meta": profile_meta,
+            "tweets": tweets,
+            "external_links_in_bio": profile_meta.get("external_links", []),
+            "source_instance": used_instance,
+            "wayback_snapshots": history,
+        }
+        # Dynamic confidence: degrade if we got the profile shell but no
+        # bio, no tweets and no follower count — Nitter sometimes returns 200
+        # with an empty layout that previously emitted as a 0.8 finding.
+        empty_check_payload = {
+            "bio": profile_meta.get("bio"),
+            "tweets_count": len(tweets or []),
+            "followers": profile_meta.get("followers"),
+            "full_name_extracted": profile_meta.get("full_name"),
+        }
+        confidence = _dynamic_confidence(confidence, empty_check_payload)
         yield Finding(
             collector=self.name,
             category="username",
@@ -385,13 +405,7 @@ class TwitterNitterCollector(Collector):
             title=f"Twitter/X: @{u} ({title_name})",
             url=canonical_url,
             confidence=confidence,
-            payload={
-                "profile_meta": profile_meta,
-                "tweets": tweets,
-                "external_links_in_bio": profile_meta.get("external_links", []),
-                "source_instance": used_instance,
-                "wayback_snapshots": history,
-            },
+            payload=payload,
         )
 
         for link in profile_meta.get("external_links", []) or []:

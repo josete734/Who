@@ -30,7 +30,8 @@ class DnsMxCollector(Collector):
     timeout_seconds = 10
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.email
+        if not input.email:
+            return
         try:
             local, domain = input.email.split("@", 1)
         except ValueError:

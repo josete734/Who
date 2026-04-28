@@ -48,7 +48,8 @@ class PhoneInfogaCollector(Collector):
     description = "PhoneInfoga-style local analysis + Google dorks."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.phone
+        if not input.phone:
+            return
         raw = input.phone.strip()
         try:
             num = phonenumbers.parse(raw, None if raw.startswith("+") else "ES")

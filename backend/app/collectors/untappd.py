@@ -20,7 +20,8 @@ class UntappdCollector(Collector):
     timeout_seconds = 12
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         url = f"https://untappd.com/user/{u}"
         c = await get_client("default")

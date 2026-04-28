@@ -20,7 +20,8 @@ class LastfmCollector(Collector):
     timeout_seconds = 12
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         base = f"https://www.last.fm/user/{u}"
         artists_url = f"{base}/library/artists?date_preset=LAST_7_DAYS"

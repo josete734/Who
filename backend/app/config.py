@@ -38,14 +38,10 @@ class Settings(BaseSettings):
     reddit_client_secret: str = ""
     reddit_user_agent: str = "osint-tool/1.0"
     companies_house_key: str = ""
-    rapidapi_key: str = ""
     shodan_api_key: str = ""
     urlscan_api_key: str = ""
     leakix_api_key: str = ""
-    hunter_api_key: str = ""
-    numverify_api_key: str = ""
     aleph_free_key: str = ""
-    intelx_free_key: str = ""
     wigle_basic: str = ""
 
     # Limits

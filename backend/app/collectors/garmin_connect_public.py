@@ -32,7 +32,8 @@ class GarminConnectPublicCollector(Collector):
     timeout_seconds = 15
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         username = input.username.lstrip("@")
         display_name: str | None = None
         location: str | None = None

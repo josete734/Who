@@ -89,7 +89,8 @@ class FoursquarePublicCollector(Collector):
     description = "Foursquare public profile -> visible checkins (HTML scrape)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         username = input.username.lstrip("@")
         url = PROFILE_URL.format(username=username)
 

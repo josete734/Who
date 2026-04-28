@@ -58,7 +58,8 @@ class TikTokPublicCollector(Collector):
     description = "TikTok profile existence (strict uniqueId match, no false positives)."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@")
         url = f"https://www.tiktok.com/@{u}"
         async with client(timeout=10) as c:

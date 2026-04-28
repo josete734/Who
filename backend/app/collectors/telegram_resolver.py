@@ -36,7 +36,8 @@ class TelegramResolverCollector(Collector):
     description = "Telegram public profile resolver via t.me HTML scraping."
 
     async def run(self, input: SearchInput) -> AsyncIterator[Finding]:
-        assert input.username
+        if not input.username:
+            return
         u = input.username.lstrip("@").strip()
         if not u:
             return
